@@ -88,6 +88,47 @@ export async function migrateDatabase() {
     `
     console.log('Migration: Ensured defaults table exists')
 
+    // Add foreign key columns to resumes table if they don't exist
+    try {
+      console.log('Migration: Checking resumes table for personal info columns...')
+      
+      const resumeColumns = await migrationSql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'resumes'
+      `
+      
+      const columnNames = resumeColumns.map(c => c.column_name)
+      
+      if (!columnNames.includes('name_id')) {
+        console.log('Migration: Adding name_id column to resumes table...')
+        await migrationSql`
+          ALTER TABLE resumes 
+          ADD COLUMN name_id INTEGER REFERENCES names(id) ON DELETE SET NULL
+        `
+      }
+      
+      if (!columnNames.includes('phone_id')) {
+        console.log('Migration: Adding phone_id column to resumes table...')
+        await migrationSql`
+          ALTER TABLE resumes 
+          ADD COLUMN phone_id INTEGER REFERENCES phones(id) ON DELETE SET NULL
+        `
+      }
+      
+      if (!columnNames.includes('email_id')) {
+        console.log('Migration: Adding email_id column to resumes table...')
+        await migrationSql`
+          ALTER TABLE resumes 
+          ADD COLUMN email_id INTEGER REFERENCES emails(id) ON DELETE SET NULL
+        `
+      }
+      
+      console.log('Migration: Resumes table personal info columns updated')
+    } catch (e) {
+      console.log('Migration: Error updating resumes table:', e.message)
+    }
+
     // Check if there's any existing default for names, if not set first name as default
     const existingDefault = await migrationSql`
       SELECT * FROM defaults 

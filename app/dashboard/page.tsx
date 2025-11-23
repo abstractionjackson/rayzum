@@ -16,6 +16,16 @@ export default function Dashboard() {
                     </p>
                 </Link>
 
+                <Link
+                    href="/dashboard/builder"
+                    className="block p-6 bg-white rounded-lg shadow-md border hover:shadow-lg transition-shadow"
+                >
+                    <h2 className="text-xl font-semibold mb-2 text-green-600">Resume Builder</h2>
+                    <p className="text-gray-600">
+                        Create and manage your resume instances by selecting personal information elements.
+                    </p>
+                </Link>
+
                 <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
                     <h2 className="text-xl font-semibold mb-2 text-gray-400">Experience</h2>
                     <p className="text-gray-500">
@@ -44,14 +54,6 @@ export default function Dashboard() {
                     <h2 className="text-xl font-semibold mb-2 text-gray-400">Projects</h2>
                     <p className="text-gray-500">
                         Showcase your personal and professional projects.
-                    </p>
-                    <span className="text-sm text-gray-400 mt-2 block">Coming Soon</span>
-                </div>
-
-                <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                    <h2 className="text-xl font-semibold mb-2 text-gray-400">Resume Builder</h2>
-                    <p className="text-gray-500">
-                        Create and customize your resume templates.
                     </p>
                     <span className="text-sm text-gray-400 mt-2 block">Coming Soon</span>
                 </div>

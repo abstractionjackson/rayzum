@@ -54,6 +54,9 @@ export async function seed() {
       id SERIAL PRIMARY KEY,
       user_id VARCHAR(255) NOT NULL,
       title VARCHAR(255) NOT NULL,
+      name_id INTEGER REFERENCES names(id) ON DELETE SET NULL,
+      phone_id INTEGER REFERENCES phones(id) ON DELETE SET NULL,
+      email_id INTEGER REFERENCES emails(id) ON DELETE SET NULL,
       template VARCHAR(100) DEFAULT 'default',
       "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
