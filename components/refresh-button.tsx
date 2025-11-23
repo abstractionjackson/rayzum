@@ -9,15 +9,15 @@ export default function RefreshButton() {
 
   return (
     <button
-      className={`${
-        isPending ? 'cursor-not-allowed text-gray-400' : ''
-      } text-sm text-gray-500 hover:text-gray-900`}
+      className={`${isPending ? 'cursor-not-allowed text-gray-400' : ''
+        } text-sm text-gray-500 hover:text-gray-900 transition-colors`}
       disabled={isPending}
       onClick={() => {
         startTransition(() => {
           router.refresh()
         })
       }}
+      title="Refresh resume components"
     >
       {isPending ? 'Refreshing...' : 'Refresh'}
     </button>

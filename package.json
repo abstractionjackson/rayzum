@@ -1,8 +1,8 @@
 {
-  "name": "postgres-starter",
-  "repository": "https://github.com/vercel/examples.git",
+  "name": "resume-builder",
+  "repository": "https://github.com/abstractionjackson/regent-street.git",
   "license": "MIT",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
