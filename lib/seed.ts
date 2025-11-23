@@ -14,6 +14,28 @@ export async function seed() {
     );
   `
 
+  // Create phones table
+  const createPhonesTable = await sql`
+    CREATE TABLE IF NOT EXISTS phones (
+      id SERIAL PRIMARY KEY,
+      phone VARCHAR(50) NOT NULL,
+      user_id VARCHAR(255) DEFAULT 'demo-user',
+      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, phone)
+    );
+  `
+
+  // Create emails table
+  const createEmailsTable = await sql`
+    CREATE TABLE IF NOT EXISTS emails (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      user_id VARCHAR(255) DEFAULT 'demo-user',
+      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, email)
+    );
+  `
+
   // Create defaults table
   const createDefaultsTable = await sql`
     CREATE TABLE IF NOT EXISTS defaults (
@@ -71,13 +93,45 @@ export async function seed() {
     sql`
       INSERT INTO names (name, user_id)
       VALUES ('John Doe', 'demo-user')
-      ON CONFLICT (name) DO NOTHING
+      ON CONFLICT (user_id, name) DO NOTHING
       RETURNING id;
     `,
     sql`
       INSERT INTO names (name, user_id)
       VALUES ('Jane Smith', 'demo-user')
-      ON CONFLICT (name) DO NOTHING
+      ON CONFLICT (user_id, name) DO NOTHING
+      RETURNING id;
+    `
+  ])
+
+  // Seed with sample phones
+  const samplePhones = await Promise.all([
+    sql`
+      INSERT INTO phones (phone, user_id)
+      VALUES ('+1 (555) 123-4567', 'demo-user')
+      ON CONFLICT (user_id, phone) DO NOTHING
+      RETURNING id;
+    `,
+    sql`
+      INSERT INTO phones (phone, user_id)
+      VALUES ('+1 (555) 987-6543', 'demo-user')
+      ON CONFLICT (user_id, phone) DO NOTHING
+      RETURNING id;
+    `
+  ])
+
+  // Seed with sample emails
+  const sampleEmails = await Promise.all([
+    sql`
+      INSERT INTO emails (email, user_id)
+      VALUES ('john.doe@example.com', 'demo-user')
+      ON CONFLICT (user_id, email) DO NOTHING
+      RETURNING id;
+    `,
+    sql`
+      INSERT INTO emails (email, user_id)
+      VALUES ('jane.smith@example.com', 'demo-user')
+      ON CONFLICT (user_id, email) DO NOTHING
       RETURNING id;
     `
   ])
@@ -89,6 +143,26 @@ export async function seed() {
       VALUES ('demo-user', 'name', ${sampleNames[0][0].id})
       ON CONFLICT (user_id, entity_type) 
       DO UPDATE SET entity_id = ${sampleNames[0][0].id};
+    `
+  }
+
+  // Set first phone as default using defaults table
+  if (samplePhones[0] && samplePhones[0][0]) {
+    await sql`
+      INSERT INTO defaults (user_id, entity_type, entity_id)
+      VALUES ('demo-user', 'phone', ${samplePhones[0][0].id})
+      ON CONFLICT (user_id, entity_type) 
+      DO UPDATE SET entity_id = ${samplePhones[0][0].id};
+    `
+  }
+
+  // Set first email as default using defaults table
+  if (sampleEmails[0] && sampleEmails[0][0]) {
+    await sql`
+      INSERT INTO defaults (user_id, entity_type, entity_id)
+      VALUES ('demo-user', 'email', ${sampleEmails[0][0].id})
+      ON CONFLICT (user_id, entity_type) 
+      DO UPDATE SET entity_id = ${sampleEmails[0][0].id};
     `
   }
 
