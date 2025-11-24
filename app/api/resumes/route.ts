@@ -5,8 +5,6 @@ import { migrateDatabase } from '@/lib/migrate'
 
 export async function GET() {
   try {
-    console.log('GET /api/resumes - Starting...')
-    
     // Run migration first to ensure schema is up to date
     await migrateDatabase()
     
@@ -18,7 +16,7 @@ export async function GET() {
     })
 
     try {
-      // Query resumes with their associated personal information
+      // Query resumes with their associated personal information and experiences
       const resumes = await querySql`
         SELECT 
           r.id,
@@ -32,18 +30,38 @@ export async function GET() {
           r."updatedAt",
           n.name as name_value,
           p.phone as phone_value,
-          e.email as email_value
+          e.email as email_value,
+          COALESCE(exp_agg.experience_ids, '[]'::json) as experience_ids,
+          COALESCE(edu_agg.education_ids, '[]'::json) as education_ids
         FROM resumes r
         LEFT JOIN names n ON r.name_id = n.id
         LEFT JOIN phones p ON r.phone_id = p.id
         LEFT JOIN emails e ON r.email_id = e.id
+        LEFT JOIN LATERAL (
+          SELECT json_agg(
+            jsonb_build_object(
+              'id', re.experience_entry_id,
+              'display_order', re.display_order
+            ) ORDER BY re.display_order ASC
+          ) as experience_ids
+          FROM resume_experiences re
+          WHERE re.resume_id = r.id
+        ) exp_agg ON true
+        LEFT JOIN LATERAL (
+          SELECT json_agg(
+            jsonb_build_object(
+              'id', red.education_item_id,
+              'display_order', red.display_order
+            ) ORDER BY red.display_order ASC
+          ) as education_ids
+          FROM resume_education red
+          WHERE red.resume_id = r.id
+        ) edu_agg ON true
         WHERE r.user_id = 'demo-user'
         ORDER BY r."updatedAt" DESC
       `
       
       await querySql.end()
-      
-      console.log('GET /api/resumes - Query result:', resumes.length, 'resumes found')
       
       return NextResponse.json(resumes)
     } catch (e: any) {
@@ -73,12 +91,23 @@ export async function GET() {
             r."updatedAt",
             n.name as name_value,
             p.phone as phone_value,
-            e.email as email_value
+            e.email as email_value,
+            COALESCE(
+              json_agg(
+                DISTINCT jsonb_build_object(
+                  'id', re.experience_entry_id,
+                  'display_order', re.display_order
+                ) ORDER BY re.display_order ASC
+              ) FILTER (WHERE re.experience_entry_id IS NOT NULL),
+              '[]'
+            ) as experience_ids
           FROM resumes r
           LEFT JOIN names n ON r.name_id = n.id
           LEFT JOIN phones p ON r.phone_id = p.id
           LEFT JOIN emails e ON r.email_id = e.id
+          LEFT JOIN resume_experiences re ON re.resume_id = r.id
           WHERE r.user_id = 'demo-user'
+          GROUP BY r.id, n.name, p.phone, e.email
           ORDER BY r."updatedAt" DESC
         `
         
@@ -99,8 +128,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/resumes - Starting...')
-    const { title, name_id, phone_id, email_id } = await request.json()
-    console.log('POST /api/resumes - Received:', { title, name_id, phone_id, email_id })
+    const { title, name_id, phone_id, email_id, experience_ids, education_ids } = await request.json()
+    console.log('POST /api/resumes - Received:', { title, name_id, phone_id, email_id, experience_ids, education_ids })
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       console.log('POST /api/resumes - Invalid title provided')
@@ -121,6 +150,30 @@ export async function POST(request: NextRequest) {
         VALUES ('demo-user', ${title.trim()}, ${name_id || null}, ${phone_id || null}, ${email_id || null})
         RETURNING *
       `
+      
+      const resumeId = result[0].id
+      
+      // Add experience entries if provided
+      if (experience_ids && Array.isArray(experience_ids) && experience_ids.length > 0) {
+        for (let i = 0; i < experience_ids.length; i++) {
+          await insertSql`
+            INSERT INTO resume_experiences (resume_id, experience_entry_id, display_order)
+            VALUES (${resumeId}, ${experience_ids[i]}, ${i})
+            ON CONFLICT (resume_id, experience_entry_id) DO NOTHING
+          `
+        }
+      }
+      
+      // Add education items if provided
+      if (education_ids && Array.isArray(education_ids) && education_ids.length > 0) {
+        for (let i = 0; i < education_ids.length; i++) {
+          await insertSql`
+            INSERT INTO resume_education (resume_id, education_item_id, display_order)
+            VALUES (${resumeId}, ${education_ids[i]}, ${i})
+            ON CONFLICT (resume_id, education_item_id) DO NOTHING
+          `
+        }
+      }
       
       await insertSql.end()
       console.log('POST /api/resumes - Insert successful, result:', result)
@@ -163,8 +216,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     console.log('PUT /api/resumes - Starting...')
-    const { id, title, name_id, phone_id, email_id } = await request.json()
-    console.log('PUT /api/resumes - Received:', { id, title, name_id, phone_id, email_id })
+    const { id, title, name_id, phone_id, email_id, experience_ids, education_ids } = await request.json()
+    console.log('PUT /api/resumes - Received:', { id, title, name_id, phone_id, email_id, experience_ids, education_ids })
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
@@ -191,13 +244,48 @@ export async function PUT(request: NextRequest) {
         RETURNING *
       `
 
-      await updateSql.end()
-
       if (result.length === 0) {
+        await updateSql.end()
         return NextResponse.json({ error: 'Resume not found' }, { status: 404 })
       }
 
-      console.log('PUT /api/resumes - Update successful:', result[0])
+      // Update experience entries if provided
+      if (experience_ids !== undefined && Array.isArray(experience_ids)) {
+        // Delete existing experience associations
+        await updateSql`
+          DELETE FROM resume_experiences WHERE resume_id = ${id}
+        `
+        
+        // Insert new experience associations
+        for (let i = 0; i < experience_ids.length; i++) {
+          await updateSql`
+            INSERT INTO resume_experiences (resume_id, experience_entry_id, display_order)
+            VALUES (${id}, ${experience_ids[i]}, ${i})
+            ON CONFLICT (resume_id, experience_entry_id) DO UPDATE SET display_order = ${i}
+          `
+        }
+      }
+
+      // Update education items if provided
+      if (education_ids !== undefined && Array.isArray(education_ids)) {
+        // Delete existing education associations
+        await updateSql`
+          DELETE FROM resume_education WHERE resume_id = ${id}
+        `
+        
+        // Insert new education associations
+        for (let i = 0; i < education_ids.length; i++) {
+          await updateSql`
+            INSERT INTO resume_education (resume_id, education_item_id, display_order)
+            VALUES (${id}, ${education_ids[i]}, ${i})
+            ON CONFLICT (resume_id, education_item_id) DO UPDATE SET display_order = ${i}
+          `
+        }
+      }
+
+      await updateSql.end()
+
+      console.log('PUT /api/resumes - Update successful')
       return NextResponse.json(result[0])
       
     } catch (e: any) {

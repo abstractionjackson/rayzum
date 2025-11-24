@@ -5,8 +5,6 @@ import { migrateDatabase } from '@/lib/migrate'
 
 export async function GET() {
   try {
-    console.log('GET /api/emails - Starting...')
-    
     // Run migration first to ensure schema is up to date
     await migrateDatabase()
     
@@ -34,15 +32,11 @@ export async function GET() {
       
       await querySql.end()
       
-      console.log('GET /api/emails - Query result:', emails.length, 'emails found')
-      console.log('GET /api/emails - Emails data:', emails)
-      
       return NextResponse.json(emails)
     } catch (e: any) {
       await querySql.end()
       
       if (e.message.includes('relation') && e.message.includes('does not exist')) {
-        console.log('Tables do not exist, creating and seeding now...')
         await seed()
         
         // Try again after seeding
@@ -67,7 +61,6 @@ export async function GET() {
         
         await newQuerySql.end()
         
-        console.log('GET /api/emails - After seed, query result:', emails.length, 'emails found')
         return NextResponse.json(emails)
       }
       

@@ -7,8 +7,6 @@ const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' })
 
 export async function GET() {
   try {
-    console.log('GET /api/names - Creating fresh connection...')
-    
     // Run migration to ensure proper database state
     await migrateDatabase()
     
@@ -36,15 +34,11 @@ export async function GET() {
       
       await querySql.end()
       
-      console.log('GET /api/names - Query result:', names.length, 'names found')
-      console.log('GET /api/names - Names data:', names)
-      
       return NextResponse.json(names)
     } catch (e: any) {
       await querySql.end()
       
       if (e.message.includes('relation') && e.message.includes('does not exist')) {
-        console.log('Tables do not exist, creating and seeding now...')
         await seed()
         
         // Try again after seeding
@@ -68,7 +62,6 @@ export async function GET() {
         `
         
         await newQuerySql.end()
-        console.log('GET /api/names - After seeding, found:', names.length, 'names')
         
         return NextResponse.json(names)
       } else {

@@ -26,21 +26,25 @@ export default function Dashboard() {
                     </p>
                 </Link>
 
-                <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                    <h2 className="text-xl font-semibold mb-2 text-gray-400">Experience</h2>
-                    <p className="text-gray-500">
-                        Add and manage your work experience entries.
+                <Link
+                    href="/dashboard/experience"
+                    className="block p-6 bg-white rounded-lg shadow-md border hover:shadow-lg transition-shadow"
+                >
+                    <h2 className="text-xl font-semibold mb-2 text-purple-600">Experience</h2>
+                    <p className="text-gray-600">
+                        Add and manage your work experience entries with highlights and bullet points.
                     </p>
-                    <span className="text-sm text-gray-400 mt-2 block">Coming Soon</span>
-                </div>
+                </Link>
 
-                <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                    <h2 className="text-xl font-semibold mb-2 text-gray-400">Education</h2>
-                    <p className="text-gray-500">
-                        Add your educational background and certifications.
+                <Link
+                    href="/dashboard/education-items"
+                    className="block p-6 bg-white rounded-lg shadow-md border hover:shadow-lg transition-shadow"
+                >
+                    <h2 className="text-xl font-semibold mb-2 text-orange-600">Education</h2>
+                    <p className="text-gray-600">
+                        Add and manage your educational background and certifications.
                     </p>
-                    <span className="text-sm text-gray-400 mt-2 block">Coming Soon</span>
-                </div>
+                </Link>
 
                 <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
                     <h2 className="text-xl font-semibold mb-2 text-gray-400">Skills</h2>

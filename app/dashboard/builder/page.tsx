@@ -12,6 +12,8 @@ interface Resume {
     name_value: string | null
     phone_value: string | null
     email_value: string | null
+    experience_ids: Array<{ id: number; display_order: number }>
+    education_ids: Array<{ id: number; display_order: number }>
     createdAt: string
     updatedAt: string
 }
@@ -22,24 +24,46 @@ interface PersonalInfo {
     is_default: boolean
 }
 
+interface Experience {
+    id: number
+    job_title: string
+    company_name: string
+    start_date: string
+    end_date: string | null
+}
+
+interface EducationItem {
+    id: number
+    school: string
+    degree: string
+    year: string
+    is_default: boolean
+}
+
 export default function BuilderPage() {
     const [resumes, setResumes] = useState<Resume[]>([])
     const [names, setNames] = useState<PersonalInfo[]>([])
     const [phones, setPhones] = useState<PersonalInfo[]>([])
     const [emails, setEmails] = useState<PersonalInfo[]>([])
+    const [experiences, setExperiences] = useState<Experience[]>([])
+    const [educationItems, setEducationItems] = useState<EducationItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [showCreateForm, setShowCreateForm] = useState(false)
     const [editingResume, setEditingResume] = useState<number | null>(null)
-    
+
     // Form state
     const [formTitle, setFormTitle] = useState('')
     const [formNameId, setFormNameId] = useState<number | null>(null)
     const [formPhoneId, setFormPhoneId] = useState<number | null>(null)
     const [formEmailId, setFormEmailId] = useState<number | null>(null)
+    const [formExperienceIds, setFormExperienceIds] = useState<number[]>([])
+    const [formEducationIds, setFormEducationIds] = useState<number[]>([])
 
     useEffect(() => {
         fetchResumes()
         fetchPersonalInfo()
+        fetchExperiences()
+        fetchEducationItems()
     }, [])
 
     const fetchResumes = async () => {
@@ -68,7 +92,7 @@ export default function BuilderPage() {
                 const namesData = await namesRes.json()
                 const mappedNames = namesData.map((n: any) => ({ id: n.id, value: n.name, is_default: n.is_default }))
                 setNames(mappedNames)
-                
+
                 // Set default name if exists and form is empty
                 const defaultName = mappedNames.find((n: PersonalInfo) => n.is_default)
                 if (defaultName && formNameId === null && !editingResume) {
@@ -79,7 +103,7 @@ export default function BuilderPage() {
                 const phonesData = await phonesRes.json()
                 const mappedPhones = phonesData.map((p: any) => ({ id: p.id, value: p.phone, is_default: p.is_default }))
                 setPhones(mappedPhones)
-                
+
                 // Set default phone if exists and form is empty
                 const defaultPhone = mappedPhones.find((p: PersonalInfo) => p.is_default)
                 if (defaultPhone && formPhoneId === null && !editingResume) {
@@ -90,7 +114,7 @@ export default function BuilderPage() {
                 const emailsData = await emailsRes.json()
                 const mappedEmails = emailsData.map((e: any) => ({ id: e.id, value: e.email, is_default: e.is_default }))
                 setEmails(mappedEmails)
-                
+
                 // Set default email if exists and form is empty
                 const defaultEmail = mappedEmails.find((e: PersonalInfo) => e.is_default)
                 if (defaultEmail && formEmailId === null && !editingResume) {
@@ -102,9 +126,39 @@ export default function BuilderPage() {
         }
     }
 
+    const fetchExperiences = async () => {
+        try {
+            const response = await fetch('/api/experience')
+            if (response.ok) {
+                const data = await response.json()
+                setExperiences(data)
+            }
+        } catch (error) {
+            console.error('Error fetching experiences:', error)
+        }
+    }
+
+    const fetchEducationItems = async () => {
+        try {
+            const response = await fetch('/api/education-items')
+            if (response.ok) {
+                const data = await response.json()
+                setEducationItems(data)
+
+                // Set default education items if form is empty and not editing
+                if (formEducationIds.length === 0 && !editingResume) {
+                    const defaultItems = data.filter((item: EducationItem) => item.is_default)
+                    setFormEducationIds(defaultItems.map((item: EducationItem) => item.id))
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching education items:', error)
+        }
+    }
+
     const handleCreateResume = async (e: React.FormEvent) => {
         e.preventDefault()
-        
+
         try {
             const response = await fetch('/api/resumes', {
                 method: 'POST',
@@ -113,7 +167,9 @@ export default function BuilderPage() {
                     title: formTitle,
                     name_id: formNameId,
                     phone_id: formPhoneId,
-                    email_id: formEmailId
+                    email_id: formEmailId,
+                    experience_ids: formExperienceIds,
+                    education_ids: formEducationIds
                 })
             })
 
@@ -141,7 +197,9 @@ export default function BuilderPage() {
                     title: formTitle,
                     name_id: formNameId,
                     phone_id: formPhoneId,
-                    email_id: formEmailId
+                    email_id: formEmailId,
+                    experience_ids: formExperienceIds,
+                    education_ids: formEducationIds
                 })
             })
 
@@ -186,6 +244,8 @@ export default function BuilderPage() {
         setFormNameId(resume.name_id)
         setFormPhoneId(resume.phone_id)
         setFormEmailId(resume.email_id)
+        setFormExperienceIds(resume.experience_ids ? resume.experience_ids.map(e => e.id) : [])
+        setFormEducationIds(resume.education_ids ? resume.education_ids.map(e => e.id) : [])
         setEditingResume(resume.id)
         setShowCreateForm(false)
     }
@@ -196,10 +256,13 @@ export default function BuilderPage() {
         const defaultName = names.find(n => n.is_default)
         const defaultPhone = phones.find(p => p.is_default)
         const defaultEmail = emails.find(e => e.is_default)
-        
+        const defaultEducation = educationItems.filter(item => item.is_default)
+
         setFormNameId(defaultName?.id || null)
         setFormPhoneId(defaultPhone?.id || null)
         setFormEmailId(defaultEmail?.id || null)
+        setFormExperienceIds([])
+        setFormEducationIds(defaultEducation.map(item => item.id))
     }
 
     const cancelEdit = () => {
@@ -342,6 +405,89 @@ export default function BuilderPage() {
                             </div>
                         </div>
 
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Experience Entries
+                            </label>
+                            <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                                {experiences.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {experiences.map((exp) => (
+                                            <label key={exp.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formExperienceIds.includes(exp.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            if (!formExperienceIds.includes(exp.id)) {
+                                                                setFormExperienceIds([...formExperienceIds, exp.id])
+                                                            }
+                                                        } else {
+                                                            setFormExperienceIds(formExperienceIds.filter(id => id !== exp.id))
+                                                        }
+                                                    }}
+                                                    className="mt-1"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-sm">{exp.job_title}</div>
+                                                    <div className="text-xs text-gray-500">{exp.company_name}</div>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 text-center py-4">
+                                        No experience entries yet.{' '}
+                                        <Link href="/dashboard/experience" className="text-blue-600 hover:underline">
+                                            Add experience
+                                        </Link>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Education
+                            </label>
+                            <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                                {educationItems.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {educationItems.map((item) => (
+                                            <label key={item.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formEducationIds.includes(item.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            if (!formEducationIds.includes(item.id)) {
+                                                                setFormEducationIds([...formEducationIds, item.id])
+                                                            }
+                                                        } else {
+                                                            setFormEducationIds(formEducationIds.filter(id => id !== item.id))
+                                                        }
+                                                    }}
+                                                    className="mt-1"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-sm">{item.school}</div>
+                                                    <div className="text-xs text-gray-600">{item.degree}</div>
+                                                    <div className="text-xs text-gray-500">{item.year}</div>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 text-center py-4">
+                                        No education entries yet.{' '}
+                                        <Link href="/dashboard/education-items" className="text-blue-600 hover:underline">
+                                            Add education
+                                        </Link>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="flex gap-2">
                             <button
                                 type="submit"
@@ -380,7 +526,7 @@ export default function BuilderPage() {
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1">
                                         <h3 className="text-lg font-semibold mb-2">{resume.title}</h3>
-                                        <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600">
+                                        <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
                                             <div>
                                                 <span className="font-medium">Name:</span>{' '}
                                                 {resume.name_value || <span className="text-gray-400">Not set</span>}
@@ -394,6 +540,41 @@ export default function BuilderPage() {
                                                 {resume.email_value || <span className="text-gray-400">Not set</span>}
                                             </div>
                                         </div>
+
+                                        {/* Experience Items */}
+                                        {resume.experience_ids && resume.experience_ids.length > 0 && (
+                                            <div className="mb-3">
+                                                <span className="text-sm font-medium text-gray-700">Experience ({resume.experience_ids.length}):</span>
+                                                <div className="mt-1 flex flex-wrap gap-2">
+                                                    {resume.experience_ids.map((expId) => {
+                                                        const exp = experiences.find(e => e.id === expId.id)
+                                                        return exp ? (
+                                                            <span key={`exp-${expId.id}`} className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded">
+                                                                {exp.job_title} @ {exp.company_name}
+                                                            </span>
+                                                        ) : null
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Education Items */}
+                                        {resume.education_ids && resume.education_ids.length > 0 && (
+                                            <div className="mb-3">
+                                                <span className="text-sm font-medium text-gray-700">Education ({resume.education_ids.length}):</span>
+                                                <div className="mt-1 flex flex-wrap gap-2">
+                                                    {resume.education_ids.map((eduId) => {
+                                                        const edu = educationItems.find(e => e.id === eduId.id)
+                                                        return edu ? (
+                                                            <span key={`edu-${eduId.id}`} className="inline-flex items-center px-2 py-1 bg-orange-50 text-orange-700 text-xs rounded">
+                                                                {edu.degree} - {edu.school}
+                                                            </span>
+                                                        ) : null
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="text-xs text-gray-400 mt-2">
                                             Updated: {new Date(resume.updatedAt).toLocaleString()}
                                         </div>
