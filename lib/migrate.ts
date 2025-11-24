@@ -155,6 +155,84 @@ export async function migrateDatabase() {
       }
     }
 
+    // Migrate experience_entries to experience_templates
+    console.log('Migration: Checking for experience table migration...')
+    
+    const experienceEntriesExists = await migrationSql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'experience_entries'
+    `
+
+    if (experienceEntriesExists.length > 0) {
+      console.log('Migration: Renaming experience_entries to experience_templates...')
+      
+      // Rename the table
+      await migrationSql`
+        ALTER TABLE experience_entries 
+        RENAME TO experience_templates
+      `
+      
+      // Update highlights table foreign key column name
+      await migrationSql`
+        ALTER TABLE highlights 
+        RENAME COLUMN experience_entry_id TO experience_template_id
+      `
+      
+      console.log('Migration: experience_entries renamed to experience_templates')
+    }
+
+    // Migrate resume_experiences to resume_experience_instances
+    const resumeExperiencesExists = await migrationSql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'resume_experiences'
+    `
+
+    if (resumeExperiencesExists.length > 0) {
+      console.log('Migration: Migrating resume_experiences to resume_experience_instances...')
+      
+      // Create new table with selected_highlight_ids
+      await migrationSql`
+        CREATE TABLE IF NOT EXISTS resume_experience_instances (
+          id SERIAL PRIMARY KEY,
+          resume_id INTEGER NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
+          experience_template_id INTEGER NOT NULL REFERENCES experience_templates(id) ON DELETE CASCADE,
+          selected_highlight_ids INTEGER[] DEFAULT '{}',
+          display_order INTEGER DEFAULT 0,
+          "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(resume_id, experience_template_id)
+        )
+      `
+      
+      // Migrate data: copy from old table and select all highlights by default
+      await migrationSql`
+        INSERT INTO resume_experience_instances 
+          (resume_id, experience_template_id, selected_highlight_ids, display_order, "createdAt")
+        SELECT 
+          re.resume_id,
+          re.experience_entry_id,
+          COALESCE(
+            ARRAY_AGG(h.id ORDER BY h."createdAt" ASC) FILTER (WHERE h.id IS NOT NULL),
+            '{}'::INTEGER[]
+          ),
+          re.display_order,
+          re."createdAt"
+        FROM resume_experiences re
+        LEFT JOIN highlights h ON h.experience_template_id = re.experience_entry_id
+        GROUP BY re.resume_id, re.experience_entry_id, re.display_order, re."createdAt"
+        ON CONFLICT (resume_id, experience_template_id) DO NOTHING
+      `
+      
+      // Drop old table
+      await migrationSql`
+        DROP TABLE resume_experiences
+      `
+      
+      console.log('Migration: resume_experiences migrated to resume_experience_instances')
+    }
+
     console.log('Migration completed successfully')
     
     // Close the migration connection

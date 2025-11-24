@@ -12,7 +12,7 @@ interface Resume {
     name_value: string | null
     phone_value: string | null
     email_value: string | null
-    experience_ids: Array<{ id: number; display_order: number }>
+    experience_ids: Array<{ id: number; template_id: number; selected_highlight_ids: number[]; display_order: number }>
     education_ids: Array<{ id: number; display_order: number }>
     createdAt: string
     updatedAt: string
@@ -30,6 +30,7 @@ interface Experience {
     company_name: string
     start_date: string
     end_date: string | null
+    highlights: Array<{ id: number; text: string }>
 }
 
 interface EducationItem {
@@ -38,6 +39,11 @@ interface EducationItem {
     degree: string
     year: string
     is_default: boolean
+}
+
+interface ExperienceInstance {
+    template_id: number
+    selected_highlight_ids: number[]
 }
 
 export default function BuilderPage() {
@@ -56,7 +62,7 @@ export default function BuilderPage() {
     const [formNameId, setFormNameId] = useState<number | null>(null)
     const [formPhoneId, setFormPhoneId] = useState<number | null>(null)
     const [formEmailId, setFormEmailId] = useState<number | null>(null)
-    const [formExperienceIds, setFormExperienceIds] = useState<number[]>([])
+    const [formExperienceInstances, setFormExperienceInstances] = useState<ExperienceInstance[]>([])
     const [formEducationIds, setFormEducationIds] = useState<number[]>([])
 
     useEffect(() => {
@@ -168,7 +174,7 @@ export default function BuilderPage() {
                     name_id: formNameId,
                     phone_id: formPhoneId,
                     email_id: formEmailId,
-                    experience_ids: formExperienceIds,
+                    experience_ids: formExperienceInstances,
                     education_ids: formEducationIds
                 })
             })
@@ -198,7 +204,7 @@ export default function BuilderPage() {
                     name_id: formNameId,
                     phone_id: formPhoneId,
                     email_id: formEmailId,
-                    experience_ids: formExperienceIds,
+                    experience_ids: formExperienceInstances,
                     education_ids: formEducationIds
                 })
             })
@@ -244,7 +250,14 @@ export default function BuilderPage() {
         setFormNameId(resume.name_id)
         setFormPhoneId(resume.phone_id)
         setFormEmailId(resume.email_id)
-        setFormExperienceIds(resume.experience_ids ? resume.experience_ids.map(e => e.id) : [])
+        setFormExperienceInstances(
+            resume.experience_ids
+                ? resume.experience_ids.map(e => ({
+                    template_id: e.template_id,
+                    selected_highlight_ids: e.selected_highlight_ids || []
+                }))
+                : []
+        )
         setFormEducationIds(resume.education_ids ? resume.education_ids.map(e => e.id) : [])
         setEditingResume(resume.id)
         setShowCreateForm(false)
@@ -261,7 +274,7 @@ export default function BuilderPage() {
         setFormNameId(defaultName?.id || null)
         setFormPhoneId(defaultPhone?.id || null)
         setFormEmailId(defaultEmail?.id || null)
-        setFormExperienceIds([])
+        setFormExperienceInstances([])
         setFormEducationIds(defaultEducation.map(item => item.id))
     }
 
@@ -407,33 +420,84 @@ export default function BuilderPage() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Experience Entries
+                                Experience Templates
                             </label>
-                            <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                            <div className="border border-gray-300 rounded-md p-3 max-h-96 overflow-y-auto">
                                 {experiences.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {experiences.map((exp) => (
-                                            <label key={exp.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formExperienceIds.includes(exp.id)}
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) {
-                                                            if (!formExperienceIds.includes(exp.id)) {
-                                                                setFormExperienceIds([...formExperienceIds, exp.id])
-                                                            }
-                                                        } else {
-                                                            setFormExperienceIds(formExperienceIds.filter(id => id !== exp.id))
-                                                        }
-                                                    }}
-                                                    className="mt-1"
-                                                />
-                                                <div className="flex-1">
-                                                    <div className="font-medium text-sm">{exp.job_title}</div>
-                                                    <div className="text-xs text-gray-500">{exp.company_name}</div>
+                                    <div className="space-y-3">
+                                        {experiences.map((exp) => {
+                                            const instance = formExperienceInstances.find(i => i.template_id === exp.id)
+                                            const isSelected = !!instance
+
+                                            return (
+                                                <div key={exp.id} className="border border-gray-200 rounded p-3">
+                                                    <label className="flex items-start gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    // Add with all highlights selected by default
+                                                                    setFormExperienceInstances([
+                                                                        ...formExperienceInstances,
+                                                                        {
+                                                                            template_id: exp.id,
+                                                                            selected_highlight_ids: exp.highlights.map(h => h.id)
+                                                                        }
+                                                                    ])
+                                                                } else {
+                                                                    // Remove
+                                                                    setFormExperienceInstances(
+                                                                        formExperienceInstances.filter(i => i.template_id !== exp.id)
+                                                                    )
+                                                                }
+                                                            }}
+                                                            className="mt-1"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <div className="font-medium text-sm">{exp.job_title}</div>
+                                                            <div className="text-xs text-gray-500">{exp.company_name}</div>
+                                                        </div>
+                                                    </label>
+
+                                                    {/* Highlight selection - only show when template is selected */}
+                                                    {isSelected && exp.highlights && exp.highlights.length > 0 && (
+                                                        <div className="mt-2 ml-6 space-y-1">
+                                                            <div className="text-xs font-medium text-gray-600 mb-1">Select highlights:</div>
+                                                            {exp.highlights.map((highlight) => (
+                                                                <label key={highlight.id} className="flex items-start gap-2 cursor-pointer text-xs">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={instance?.selected_highlight_ids.includes(highlight.id)}
+                                                                        onChange={(e) => {
+                                                                            const updatedInstances = formExperienceInstances.map(i => {
+                                                                                if (i.template_id === exp.id) {
+                                                                                    if (e.target.checked) {
+                                                                                        return {
+                                                                                            ...i,
+                                                                                            selected_highlight_ids: [...i.selected_highlight_ids, highlight.id]
+                                                                                        }
+                                                                                    } else {
+                                                                                        return {
+                                                                                            ...i,
+                                                                                            selected_highlight_ids: i.selected_highlight_ids.filter(id => id !== highlight.id)
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                                return i
+                                                                            })
+                                                                            setFormExperienceInstances(updatedInstances)
+                                                                        }}
+                                                                        className="mt-0.5"
+                                                                    />
+                                                                    <span className="text-gray-700">{highlight.text}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </label>
-                                        ))}
+                                            )
+                                        })}
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500 text-center py-4">
@@ -546,11 +610,14 @@ export default function BuilderPage() {
                                             <div className="mb-3">
                                                 <span className="text-sm font-medium text-gray-700">Experience ({resume.experience_ids.length}):</span>
                                                 <div className="mt-1 flex flex-wrap gap-2">
-                                                    {resume.experience_ids.map((expId) => {
-                                                        const exp = experiences.find(e => e.id === expId.id)
+                                                    {resume.experience_ids.map((instance) => {
+                                                        const exp = experiences.find(e => e.id === instance.template_id)
                                                         return exp ? (
-                                                            <span key={`exp-${expId.id}`} className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded">
+                                                            <span key={`exp-${instance.id}`} className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded">
                                                                 {exp.job_title} @ {exp.company_name}
+                                                                {instance.selected_highlight_ids && instance.selected_highlight_ids.length > 0 && (
+                                                                    <span className="ml-1 text-purple-500">({instance.selected_highlight_ids.length} highlights)</span>
+                                                                )}
                                                             </span>
                                                         ) : null
                                                     })}

@@ -40,12 +40,14 @@ export async function GET() {
         LEFT JOIN LATERAL (
           SELECT json_agg(
             jsonb_build_object(
-              'id', re.experience_entry_id,
-              'display_order', re.display_order
-            ) ORDER BY re.display_order ASC
+              'id', rei.id,
+              'template_id', rei.experience_template_id,
+              'selected_highlight_ids', rei.selected_highlight_ids,
+              'display_order', rei.display_order
+            ) ORDER BY rei.display_order ASC
           ) as experience_ids
-          FROM resume_experiences re
-          WHERE re.resume_id = r.id
+          FROM resume_experience_instances rei
+          WHERE rei.resume_id = r.id
         ) exp_agg ON true
         LEFT JOIN LATERAL (
           SELECT json_agg(
@@ -153,13 +155,19 @@ export async function POST(request: NextRequest) {
       
       const resumeId = result[0].id
       
-      // Add experience entries if provided
+      // Add experience instances if provided
+      // Expect experience_instances array with { template_id, selected_highlight_ids }
       if (experience_ids && Array.isArray(experience_ids) && experience_ids.length > 0) {
         for (let i = 0; i < experience_ids.length; i++) {
+          const instance = experience_ids[i]
+          // Support both old format (number) and new format (object)
+          const templateId = typeof instance === 'object' ? instance.template_id : instance
+          const highlightIds = typeof instance === 'object' ? (instance.selected_highlight_ids || []) : []
+          
           await insertSql`
-            INSERT INTO resume_experiences (resume_id, experience_entry_id, display_order)
-            VALUES (${resumeId}, ${experience_ids[i]}, ${i})
-            ON CONFLICT (resume_id, experience_entry_id) DO NOTHING
+            INSERT INTO resume_experience_instances (resume_id, experience_template_id, selected_highlight_ids, display_order)
+            VALUES (${resumeId}, ${templateId}, ${highlightIds}, ${i})
+            ON CONFLICT (resume_id, experience_template_id) DO NOTHING
           `
         }
       }
@@ -249,19 +257,25 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Resume not found' }, { status: 404 })
       }
 
-      // Update experience entries if provided
+      // Update experience instances if provided
       if (experience_ids !== undefined && Array.isArray(experience_ids)) {
         // Delete existing experience associations
         await updateSql`
-          DELETE FROM resume_experiences WHERE resume_id = ${id}
+          DELETE FROM resume_experience_instances WHERE resume_id = ${id}
         `
         
-        // Insert new experience associations
+        // Insert new experience instances
         for (let i = 0; i < experience_ids.length; i++) {
+          const instance = experience_ids[i]
+          // Support both old format (number) and new format (object)
+          const templateId = typeof instance === 'object' ? instance.template_id : instance
+          const highlightIds = typeof instance === 'object' ? (instance.selected_highlight_ids || []) : []
+          
           await updateSql`
-            INSERT INTO resume_experiences (resume_id, experience_entry_id, display_order)
-            VALUES (${id}, ${experience_ids[i]}, ${i})
-            ON CONFLICT (resume_id, experience_entry_id) DO UPDATE SET display_order = ${i}
+            INSERT INTO resume_experience_instances (resume_id, experience_template_id, selected_highlight_ids, display_order)
+            VALUES (${id}, ${templateId}, ${highlightIds}, ${i})
+            ON CONFLICT (resume_id, experience_template_id) DO UPDATE 
+            SET display_order = ${i}, selected_highlight_ids = ${highlightIds}, "updatedAt" = CURRENT_TIMESTAMP
           `
         }
       }

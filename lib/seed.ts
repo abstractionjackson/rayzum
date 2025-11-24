@@ -64,9 +64,9 @@ export async function seed() {
     );
   `
 
-  // Create experience entries table
-  const createExperienceTable = await sql`
-    CREATE TABLE IF NOT EXISTS experience_entries (
+  // Create experience templates table (renamed from experience_entries)
+  const createExperienceTemplatesTable = await sql`
+    CREATE TABLE IF NOT EXISTS experience_templates (
       id SERIAL PRIMARY KEY,
       user_id VARCHAR(255) DEFAULT 'demo-user',
       job_title VARCHAR(255) NOT NULL,
@@ -78,25 +78,27 @@ export async function seed() {
     );
   `
 
-  // Create highlights table
+  // Create highlights table (references templates now)
   const createHighlightsTable = await sql`
     CREATE TABLE IF NOT EXISTS highlights (
       id SERIAL PRIMARY KEY,
-      experience_entry_id INTEGER NOT NULL REFERENCES experience_entries(id) ON DELETE CASCADE,
+      experience_template_id INTEGER NOT NULL REFERENCES experience_templates(id) ON DELETE CASCADE,
       text TEXT NOT NULL,
       "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `
 
-  // Create resume_experiences junction table
-  const createResumeExperiencesTable = await sql`
-    CREATE TABLE IF NOT EXISTS resume_experiences (
+  // Create resume_experience_instances junction table (replaces resume_experiences)
+  const createResumeExperienceInstancesTable = await sql`
+    CREATE TABLE IF NOT EXISTS resume_experience_instances (
       id SERIAL PRIMARY KEY,
       resume_id INTEGER NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-      experience_entry_id INTEGER NOT NULL REFERENCES experience_entries(id) ON DELETE CASCADE,
+      experience_template_id INTEGER NOT NULL REFERENCES experience_templates(id) ON DELETE CASCADE,
+      selected_highlight_ids INTEGER[] DEFAULT '{}',
       display_order INTEGER DEFAULT 0,
       "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(resume_id, experience_entry_id)
+      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(resume_id, experience_template_id)
     );
   `
 
@@ -246,7 +248,7 @@ export async function seed() {
     createEmailsTable,
     createDefaultsTable,
     createResumesTable,
-    createExperienceTable,
+    createExperienceTemplatesTable,
     createHighlightsTable,
     sampleNames,
     samplePhones,

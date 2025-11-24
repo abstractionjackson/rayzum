@@ -16,7 +16,7 @@ export async function GET() {
     })
 
     try {
-      // Query experience entries with their highlights
+      // Query experience templates with their highlights
       const experiences = await querySql`
         SELECT 
           e.id,
@@ -37,8 +37,8 @@ export async function GET() {
             ) FILTER (WHERE h.id IS NOT NULL),
             '[]'
           ) as highlights
-        FROM experience_entries e
-        LEFT JOIN highlights h ON h.experience_entry_id = e.id
+        FROM experience_templates e
+        LEFT JOIN highlights h ON h.experience_template_id = e.id
         WHERE e.user_id = 'demo-user'
         GROUP BY e.id
         ORDER BY e.start_date DESC NULLS LAST, e."createdAt" DESC
@@ -83,8 +83,8 @@ export async function GET() {
               ) FILTER (WHERE h.id IS NOT NULL),
               '[]'
             ) as highlights
-          FROM experience_entries e
-          LEFT JOIN highlights h ON h.experience_entry_id = e.id
+          FROM experience_templates e
+          LEFT JOIN highlights h ON h.experience_template_id = e.id
           WHERE e.user_id = 'demo-user'
           GROUP BY e.id
           ORDER BY e.start_date DESC NULLS LAST, e."createdAt" DESC
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     try {
       // Insert the experience entry
       const result = await insertSql`
-        INSERT INTO experience_entries (user_id, job_title, company_name, start_date, end_date)
+        INSERT INTO experience_templates (user_id, job_title, company_name, start_date, end_date)
         VALUES ('demo-user', ${job_title}, ${company_name}, ${start_date}, ${end_date || null})
         RETURNING *
       `
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         for (const highlight of highlights) {
           if (highlight.text && highlight.text.trim()) {
             await insertSql`
-              INSERT INTO highlights (experience_entry_id, text)
+              INSERT INTO highlights (experience_template_id, text)
               VALUES (${experienceId}, ${highlight.text.trim()})
             `
           }
@@ -164,8 +164,8 @@ export async function POST(request: NextRequest) {
             ) FILTER (WHERE h.id IS NOT NULL),
             '[]'
           ) as highlights
-        FROM experience_entries e
-        LEFT JOIN highlights h ON h.experience_entry_id = e.id
+        FROM experience_templates e
+        LEFT JOIN highlights h ON h.experience_template_id = e.id
         WHERE e.id = ${experienceId}
         GROUP BY e.id
       `
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
       await insertSql.end()
       console.log('POST /api/experience - Insert error:', e.message)
       
-      if (e.message.includes('relation "experience_entries" does not exist')) {
+      if (e.message.includes('relation "experience_templates" does not exist')) {
         console.log('Experience table does not exist, creating and seeding it now...')
         await seed()
         
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         })
         
         const result = await newInsertSql`
-          INSERT INTO experience_entries (user_id, job_title, company_name, start_date, end_date)
+          INSERT INTO experience_templates (user_id, job_title, company_name, start_date, end_date)
           VALUES ('demo-user', ${job_title}, ${company_name}, ${start_date}, ${end_date || null})
           RETURNING *
         `
@@ -228,7 +228,7 @@ export async function PUT(request: NextRequest) {
     try {
       // Update the experience entry
       const result = await updateSql`
-        UPDATE experience_entries 
+        UPDATE experience_templates 
         SET 
           job_title = COALESCE(${job_title}, job_title),
           company_name = COALESCE(${company_name}, company_name),
@@ -248,14 +248,14 @@ export async function PUT(request: NextRequest) {
       if (highlights !== undefined && Array.isArray(highlights)) {
         // Delete existing highlights
         await updateSql`
-          DELETE FROM highlights WHERE experience_entry_id = ${id}
+          DELETE FROM highlights WHERE experience_template_id = ${id}
         `
         
         // Insert new highlights
         for (const highlight of highlights) {
           if (highlight.text && highlight.text.trim()) {
             await updateSql`
-              INSERT INTO highlights (experience_entry_id, text)
+              INSERT INTO highlights (experience_template_id, text)
               VALUES (${id}, ${highlight.text.trim()})
             `
           }
@@ -283,8 +283,8 @@ export async function PUT(request: NextRequest) {
             ) FILTER (WHERE h.id IS NOT NULL),
             '[]'
           ) as highlights
-        FROM experience_entries e
-        LEFT JOIN highlights h ON h.experience_entry_id = e.id
+        FROM experience_templates e
+        LEFT JOIN highlights h ON h.experience_template_id = e.id
         WHERE e.id = ${id}
         GROUP BY e.id
       `
@@ -325,7 +325,7 @@ export async function DELETE(request: NextRequest) {
     try {
       // Delete the experience (highlights will cascade delete)
       const result = await deleteSql`
-        DELETE FROM experience_entries 
+        DELETE FROM experience_templates 
         WHERE id = ${id} AND user_id = 'demo-user'
         RETURNING *
       `

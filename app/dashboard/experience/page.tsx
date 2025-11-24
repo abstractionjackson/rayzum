@@ -163,8 +163,8 @@ export default function ExperiencePage() {
                 </Link>
             </div>
 
-            <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold">Experience</h1>
+            <div className="flex justify-between items-center mb-4">
+                <h1 className="text-3xl font-bold">Experience Templates</h1>
                 <button
                     onClick={() => {
                         setShowForm(!showForm)
@@ -174,15 +174,21 @@ export default function ExperiencePage() {
                     }}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
                 >
-                    {showForm ? 'Cancel' : '+ Add Experience'}
+                    {showForm ? 'Cancel' : '+ Add Template'}
                 </button>
+            </div>
+
+            <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> These are experience templates with all possible highlights. When building a resume, you can select which highlights to include for each position.
+                </p>
             </div>
 
             {/* Create/Edit Form */}
             {showForm && (
                 <div className="bg-white rounded-lg shadow-md p-6 border mb-8">
                     <h2 className="text-xl font-semibold mb-4">
-                        {editingId ? 'Edit Experience' : 'Add New Experience'}
+                        {editingId ? 'Edit Experience Template' : 'Add New Experience Template'}
                     </h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid md:grid-cols-2 gap-4">
