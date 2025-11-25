@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { storage, getAllExperiencesWithHighlights, getNextId } from '@/lib/storage'
 
 interface Highlight {
     id: number
     text: string
-    createdAt: string
+    createdAt?: string
 }
 
 interface Experience {
@@ -39,11 +40,8 @@ export default function ExperiencePage() {
 
     const fetchExperiences = async () => {
         try {
-            const response = await fetch('/api/experience')
-            if (response.ok) {
-                const data = await response.json()
-                setExperiences(data)
-            }
+            const data = getAllExperiencesWithHighlights()
+            setExperiences(data)
         } catch (error) {
             console.error('Error fetching experiences:', error)
         } finally {
@@ -54,38 +52,55 @@ export default function ExperiencePage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        const highlights = highlightInputs
-            .filter(h => h.trim())
-            .map(text => ({ text }))
-
-        const payload = {
-            job_title: jobTitle,
-            company_name: companyName,
-            start_date: startDate,
-            end_date: endDate || null,
-            highlights
-        }
-
         try {
-            const url = editingId ? '/api/experience' : '/api/experience'
-            const method = editingId ? 'PUT' : 'POST'
-            const body = editingId ? { ...payload, id: editingId } : payload
+            if (editingId) {
+                // Update existing experience
+                const updated = storage.update('experience_templates', editingId, {
+                    job_title: jobTitle,
+                    company_name: companyName,
+                    start_date: startDate,
+                    end_date: endDate || null,
+                    updatedAt: new Date().toISOString()
+                } as any)
 
-            const response = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            })
+                if (!updated) {
+                    alert('Error: Experience not found')
+                    return
+                }
 
-            if (response.ok) {
-                resetForm()
-                setShowForm(false)
-                setEditingId(null)
-                await fetchExperiences()
+                // Delete existing highlights
+                storage.deleteWhere('highlights', h => h.experience_template_id === editingId)
+
+                // Create new highlights
+                highlightInputs.filter(h => h.trim()).forEach(text => {
+                    storage.insert('highlights', {
+                        experience_template_id: editingId,
+                        text: text.trim()
+                    } as any)
+                })
             } else {
-                const error = await response.json()
-                alert('Error saving experience: ' + error.error)
+                // Create new experience
+                const newExperience = storage.insert('experience_templates', {
+                    job_title: jobTitle,
+                    company_name: companyName,
+                    start_date: startDate,
+                    end_date: endDate || null,
+                    updatedAt: new Date().toISOString()
+                } as any)
+
+                // Create highlights
+                highlightInputs.filter(h => h.trim()).forEach(text => {
+                    storage.insert('highlights', {
+                        experience_template_id: newExperience.id,
+                        text: text.trim()
+                    } as any)
+                })
             }
+
+            resetForm()
+            setShowForm(false)
+            setEditingId(null)
+            await fetchExperiences()
         } catch (error) {
             console.error('Error saving experience:', error)
             alert('Error saving experience')
@@ -96,18 +111,21 @@ export default function ExperiencePage() {
         if (!confirm('Are you sure you want to delete this experience?')) return
 
         try {
-            const response = await fetch('/api/experience', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            })
+            // Delete highlights first (cascade)
+            storage.deleteWhere('highlights', h => h.experience_template_id === id)
 
-            if (response.ok) {
-                await fetchExperiences()
-            } else {
-                const error = await response.json()
-                alert('Error deleting experience: ' + error.error)
+            // Delete experience instances (cascade)
+            storage.deleteWhere('resume_experience_instances', i => i.experience_template_id === id)
+
+            // Delete experience template
+            const deleted = storage.delete('experience_templates', id)
+
+            if (!deleted) {
+                alert('Error: Experience not found')
+                return
             }
+
+            await fetchExperiences()
         } catch (error) {
             console.error('Error deleting experience:', error)
             alert('Error deleting experience')

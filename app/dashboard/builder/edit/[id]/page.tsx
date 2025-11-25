@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import { storage, getResumeWithDetails, getAllExperiencesWithHighlights } from '@/lib/storage'
 
 interface PersonalInfo {
     id: number
@@ -74,29 +75,25 @@ export default function EditResumePage() {
 
     const fetchResume = async () => {
         try {
-            const response = await fetch('/api/resumes')
-            if (response.ok) {
-                const data = await response.json()
-                const foundResume = data.find((r: Resume) => r.id === Number(resumeId))
-                if (foundResume) {
-                    setResume(foundResume)
-                    setFormTitle(foundResume.title)
-                    setFormNameId(foundResume.name_id)
-                    setFormPhoneId(foundResume.phone_id)
-                    setFormEmailId(foundResume.email_id)
-                    setFormExperienceInstances(
-                        foundResume.experience_ids
-                            ? foundResume.experience_ids.map((e: any) => ({
-                                template_id: e.template_id,
-                                selected_highlight_ids: e.selected_highlight_ids || []
-                            }))
-                            : []
-                    )
-                    setFormEducationIds(foundResume.education_ids ? foundResume.education_ids.map((e: any) => e.id) : [])
-                } else {
-                    alert('Resume not found')
-                    router.push('/dashboard/builder')
-                }
+            const foundResume = getResumeWithDetails(Number(resumeId))
+            if (foundResume) {
+                setResume(foundResume as any)
+                setFormTitle(foundResume.title)
+                setFormNameId(foundResume.name_id)
+                setFormPhoneId(foundResume.phone_id)
+                setFormEmailId(foundResume.email_id)
+                setFormExperienceInstances(
+                    foundResume.experience_ids
+                        ? foundResume.experience_ids.map((e: any) => ({
+                            template_id: e.template_id,
+                            selected_highlight_ids: e.selected_highlight_ids || []
+                        }))
+                        : []
+                )
+                setFormEducationIds(foundResume.education_ids ? foundResume.education_ids.map((e: any) => e.id) : [])
+            } else {
+                alert('Resume not found')
+                router.push('/dashboard/builder')
             }
         } catch (error) {
             console.error('Error fetching resume:', error)
@@ -107,24 +104,14 @@ export default function EditResumePage() {
 
     const fetchPersonalInfo = async () => {
         try {
-            const [namesRes, phonesRes, emailsRes] = await Promise.all([
-                fetch('/api/names'),
-                fetch('/api/phones'),
-                fetch('/api/emails')
-            ])
+            const namesData = storage.select('names')
+            setNames(namesData.map((n: any) => ({ id: n.id, value: n.name, is_default: n.is_default })))
 
-            if (namesRes.ok) {
-                const namesData = await namesRes.json()
-                setNames(namesData.map((n: any) => ({ id: n.id, value: n.name, is_default: n.is_default })))
-            }
-            if (phonesRes.ok) {
-                const phonesData = await phonesRes.json()
-                setPhones(phonesData.map((p: any) => ({ id: p.id, value: p.phone, is_default: p.is_default })))
-            }
-            if (emailsRes.ok) {
-                const emailsData = await emailsRes.json()
-                setEmails(emailsData.map((e: any) => ({ id: e.id, value: e.email, is_default: e.is_default })))
-            }
+            const phonesData = storage.select('phones')
+            setPhones(phonesData.map((p: any) => ({ id: p.id, value: p.phone, is_default: p.is_default })))
+
+            const emailsData = storage.select('emails')
+            setEmails(emailsData.map((e: any) => ({ id: e.id, value: e.email, is_default: e.is_default })))
         } catch (error) {
             console.error('Error fetching personal info:', error)
         }
@@ -132,11 +119,8 @@ export default function EditResumePage() {
 
     const fetchExperiences = async () => {
         try {
-            const response = await fetch('/api/experience')
-            if (response.ok) {
-                const data = await response.json()
-                setExperiences(data)
-            }
+            const data = getAllExperiencesWithHighlights()
+            setExperiences(data)
         } catch (error) {
             console.error('Error fetching experiences:', error)
         }
@@ -144,11 +128,8 @@ export default function EditResumePage() {
 
     const fetchEducationItems = async () => {
         try {
-            const response = await fetch('/api/education-items')
-            if (response.ok) {
-                const data = await response.json()
-                setEducationItems(data)
-            }
+            const data = storage.select('education_items')
+            setEducationItems(data)
         } catch (error) {
             console.error('Error fetching education items:', error)
         }
@@ -158,26 +139,49 @@ export default function EditResumePage() {
         e.preventDefault()
 
         try {
-            const response = await fetch('/api/resumes', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: Number(resumeId),
-                    title: formTitle,
-                    name_id: formNameId,
-                    phone_id: formPhoneId,
-                    email_id: formEmailId,
-                    experience_ids: formExperienceInstances,
-                    education_ids: formEducationIds
-                })
+            const id = Number(resumeId)
+
+            // Update the resume
+            const updated = storage.update('resumes', id, {
+                title: formTitle,
+                name_id: formNameId,
+                phone_id: formPhoneId,
+                email_id: formEmailId,
+                updatedAt: new Date().toISOString()
+            } as any)
+
+            if (!updated) {
+                alert('Error: Resume not found')
+                return
+            }
+
+            // Delete existing experience instances
+            storage.deleteWhere('resume_experience_instances', (i: any) => i.resume_id === id)
+
+            // Create new experience instances
+            formExperienceInstances.forEach((exp, index) => {
+                storage.insert('resume_experience_instances', {
+                    resume_id: id,
+                    experience_template_id: exp.template_id,
+                    selected_highlight_ids: exp.selected_highlight_ids,
+                    display_order: index,
+                    updatedAt: new Date().toISOString()
+                } as any)
             })
 
-            if (response.ok) {
-                router.push('/dashboard/builder')
-            } else {
-                const error = await response.json()
-                alert('Error updating resume: ' + error.error)
-            }
+            // Delete existing education links
+            storage.deleteWhere('resume_education', (e: any) => e.resume_id === id)
+
+            // Create new education links
+            formEducationIds.forEach((eduId, index) => {
+                storage.insert('resume_education', {
+                    resume_id: id,
+                    education_item_id: eduId,
+                    display_order: index
+                } as any)
+            })
+
+            router.push('/dashboard/builder')
         } catch (error) {
             console.error('Error updating resume:', error)
             alert('Error updating resume')

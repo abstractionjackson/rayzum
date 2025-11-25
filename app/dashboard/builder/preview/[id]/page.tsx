@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import styles from './resume.module.scss'
+import { getResumeWithDetails, getAllExperiencesWithHighlights, storage } from '@/lib/storage'
 
 interface Experience {
     id: number
@@ -63,27 +64,14 @@ export default function ResumePreviewPage() {
 
     const fetchData = async () => {
         try {
-            const [resumesRes, experiencesRes, educationRes] = await Promise.all([
-                fetch('/api/resumes'),
-                fetch('/api/experience'),
-                fetch('/api/education-items')
-            ])
+            const foundResume = getResumeWithDetails(Number(resumeId))
+            setResume(foundResume as any || null)
 
-            if (resumesRes.ok) {
-                const resumesData = await resumesRes.json()
-                const foundResume = resumesData.find((r: Resume) => r.id === Number(resumeId))
-                setResume(foundResume || null)
-            }
+            const experiencesData = getAllExperiencesWithHighlights()
+            setExperiences(experiencesData)
 
-            if (experiencesRes.ok) {
-                const experiencesData = await experiencesRes.json()
-                setExperiences(experiencesData)
-            }
-
-            if (educationRes.ok) {
-                const educationData = await educationRes.json()
-                setEducationItems(educationData)
-            }
+            const educationData = storage.select('education_items')
+            setEducationItems(educationData)
         } catch (error) {
             console.error('Error fetching data:', error)
         } finally {

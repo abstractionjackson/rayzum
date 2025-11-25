@@ -1,71 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import postgres from 'postgres'
-import { seed } from '@/lib/seed'
+import { storage, setDefaultItem, getDatabase, saveDatabase } from '@/lib/storage'
 
 export async function GET() {
   try {
-    // Create a fresh SQL connection
-    const querySql = postgres(process.env.POSTGRES_URL!, { 
-      ssl: 'require',
-      max: 1,
-      idle_timeout: 1
-    })
-
-    try {
-      // Query education items
-      const educationItems = await querySql`
-        SELECT 
-          id,
-          user_id,
-          school,
-          degree,
-          year,
-          is_default,
-          "createdAt",
-          "updatedAt"
-        FROM education_items
-        WHERE user_id = 'demo-user'
-        ORDER BY year DESC, "createdAt" DESC
-      `
-      
-      await querySql.end()
-      
-      return NextResponse.json(educationItems)
-    } catch (e: any) {
-      await querySql.end()
-      
-      if (e.message.includes('relation') && e.message.includes('does not exist')) {
-        await seed()
-        
-        // Try again after seeding
-        const newQuerySql = postgres(process.env.POSTGRES_URL!, { 
-          ssl: 'require',
-          max: 1,
-          idle_timeout: 1
-        })
-        
-        const educationItems = await newQuerySql`
-          SELECT 
-            id,
-            user_id,
-            school,
-            degree,
-            year,
-            is_default,
-            "createdAt",
-            "updatedAt"
-          FROM education_items
-          WHERE user_id = 'demo-user'
-          ORDER BY year DESC, "createdAt" DESC
-        `
-        
-        await newQuerySql.end()
-        
-        return NextResponse.json(educationItems)
-      }
-      
-      throw e
-    }
+    const educationItems = storage.select('education_items')
+    // Sort by year descending
+    return NextResponse.json(educationItems.sort((a, b) => b.year.localeCompare(a.year)))
   } catch (error) {
     console.error('Error fetching education items:', error)
     return NextResponse.json({ error: 'Failed to fetch education items' }, { status: 500 })
@@ -77,60 +17,28 @@ export async function POST(request: NextRequest) {
     const { school, degree, year } = await request.json()
 
     if (!school || !degree || !year) {
-      return NextResponse.json({ error: 'School, degree, and year are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'School, degree, and year are required' },
+        { status: 400 }
+      )
     }
 
-    // Create a fresh SQL connection
-    const insertSql = postgres(process.env.POSTGRES_URL!, { 
-      ssl: 'require',
-      max: 1,
-      idle_timeout: 1
-    })
-    
-    try {
-      // Insert the education item
-      const result = await insertSql`
-        INSERT INTO education_items (school, degree, year, user_id)
-        VALUES (${school.trim()}, ${degree.trim()}, ${year.trim()}, 'demo-user')
-        RETURNING *
-      `
-      
-      await insertSql.end()
-      
-      return NextResponse.json(result[0], { status: 201 })
-    } catch (e: any) {
-      await insertSql.end()
-      
-      if (e.code === '23505') { // Unique constraint violation
-        return NextResponse.json(
-          { error: 'This education entry already exists' },
-          { status: 409 }
-        )
-      }
-      
-      if (e.message.includes('relation') && e.message.includes('does not exist')) {
-        await seed()
-        
-        // Try again after seeding
-        const newInsertSql = postgres(process.env.POSTGRES_URL!, { 
-          ssl: 'require',
-          max: 1,
-          idle_timeout: 1
-        })
-        
-        const result = await newInsertSql`
-          INSERT INTO education_items (school, degree, year, user_id)
-          VALUES (${school.trim()}, ${degree.trim()}, ${year.trim()}, 'demo-user')
-          RETURNING *
-        `
-        
-        await newInsertSql.end()
-        
-        return NextResponse.json(result[0], { status: 201 })
-      }
-      
-      throw e
+    // Check for duplicates
+    const existing = storage.select('education_items').find(
+      e => e.school === school.trim() && e.degree === degree.trim() && e.year === year.trim()
+    )
+    if (existing) {
+      return NextResponse.json({ error: 'Education item already exists' }, { status: 409 })
     }
+
+    const newEducation = storage.insert('education_items', {
+      school: school.trim(),
+      degree: degree.trim(),
+      year: year.trim(),
+      is_default: false
+    } as any)
+
+    return NextResponse.json(newEducation, { status: 201 })
   } catch (error) {
     console.error('Error creating education item:', error)
     return NextResponse.json({ error: 'Failed to create education item' }, { status: 500 })
@@ -139,88 +47,37 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, action, school, degree, year } = await request.json()
+    const { id, school, degree, year } = await request.json()
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+    if (!id || !school || !degree || !year) {
+      return NextResponse.json(
+        { error: 'ID, school, degree, and year are required' },
+        { status: 400 }
+      )
     }
 
-    // Create a fresh SQL connection
-    const updateSql = postgres(process.env.POSTGRES_URL!, { 
-      ssl: 'require',
-      max: 1,
-      idle_timeout: 1
-    })
-
-    try {
-      if (action === 'toggle-default') {
-        // Get current default status
-        const current = await updateSql`
-          SELECT is_default FROM education_items WHERE id = ${id} AND user_id = 'demo-user'
-        `
-        
-        if (current.length === 0) {
-          await updateSql.end()
-          return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
-        }
-        
-        const newDefaultStatus = !current[0].is_default
-        
-        // Update the default status
-        const result = await updateSql`
-          UPDATE education_items
-          SET is_default = ${newDefaultStatus}, "updatedAt" = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = 'demo-user'
-          RETURNING *
-        `
-        
-        await updateSql.end()
-        
-        if (result.length === 0) {
-          return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
-        }
-        
-        return NextResponse.json(result[0])
-      } else if (action === 'update') {
-        if (!school || !degree || !year) {
-          await updateSql.end()
-          return NextResponse.json({ error: 'School, degree, and year are required' }, { status: 400 })
-        }
-        
-        const result = await updateSql`
-          UPDATE education_items
-          SET 
-            school = ${school.trim()},
-            degree = ${degree.trim()},
-            year = ${year.trim()},
-            "updatedAt" = CURRENT_TIMESTAMP
-          WHERE id = ${id} AND user_id = 'demo-user'
-          RETURNING *
-        `
-        
-        await updateSql.end()
-        
-        if (result.length === 0) {
-          return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
-        }
-        
-        return NextResponse.json(result[0])
-      }
-      
-      await updateSql.end()
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-    } catch (e: any) {
-      await updateSql.end()
-      
-      if (e.code === '23505') { // Unique constraint violation
-        return NextResponse.json(
-          { error: 'This education entry already exists' },
-          { status: 409 }
-        )
-      }
-      
-      throw e
+    // Check for duplicates (excluding current item)
+    const existing = storage.select('education_items').find(
+      e => e.school === school.trim() && 
+           e.degree === degree.trim() && 
+           e.year === year.trim() && 
+           e.id !== id
+    )
+    if (existing) {
+      return NextResponse.json({ error: 'Education item already exists' }, { status: 409 })
     }
+
+    const updated = storage.update('education_items', id, {
+      school: school.trim(),
+      degree: degree.trim(),
+      year: year.trim()
+    } as any)
+    
+    if (!updated) {
+      return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
+    }
+
+    return NextResponse.json(updated)
   } catch (error) {
     console.error('Error updating education item:', error)
     return NextResponse.json({ error: 'Failed to update education item' }, { status: 500 })
@@ -229,40 +86,52 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    const { id } = await request.json()
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    // Create a fresh SQL connection
-    const deleteSql = postgres(process.env.POSTGRES_URL!, { 
-      ssl: 'require',
-      max: 1,
-      idle_timeout: 1
-    })
+    // Delete from resume_education junction table (cascade)
+    storage.deleteWhere('resume_education', e => e.education_item_id === id)
 
-    try {
-      const result = await deleteSql`
-        DELETE FROM education_items
-        WHERE id = ${id} AND user_id = 'demo-user'
-        RETURNING *
-      `
-      
-      await deleteSql.end()
-      
-      if (result.length === 0) {
-        return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
-      }
-      
-      return NextResponse.json({ message: 'Education item deleted successfully' })
-    } catch (e: any) {
-      await deleteSql.end()
-      throw e
+    // Delete education item
+    const deleted = storage.delete('education_items', id)
+    
+    if (!deleted) {
+      return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
     }
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting education item:', error)
     return NextResponse.json({ error: 'Failed to delete education item' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { id, action } = await request.json()
+
+    if (!id || action !== 'toggle-default') {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    }
+
+    const db = getDatabase()
+    const items = db.education_items
+    
+    const item = items.find(i => i.id === id)
+    if (!item) {
+      return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
+    }
+
+    // Toggle the is_default value
+    item.is_default = !item.is_default
+    saveDatabase(db)
+
+    return NextResponse.json(item)
+  } catch (error) {
+    console.error('Error toggling default:', error)
+    return NextResponse.json({ error: 'Failed to toggle default' }, { status: 500 })
   }
 }
