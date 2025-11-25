@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { storage, setDefaultItem } from '@/lib/storage'
 
 interface EducationItem {
     id: number
@@ -10,7 +11,7 @@ interface EducationItem {
     year: string
     is_default: boolean
     createdAt: string
-    updatedAt: string
+    updatedAt?: string
 }
 
 export default function EducationPage() {
@@ -49,13 +50,8 @@ export default function EducationPage() {
 
     const fetchEducationItems = async () => {
         try {
-            const response = await fetch('/api/education-items')
-            if (response.ok) {
-                const data = await response.json()
-                setEducationItems(data)
-            } else {
-                console.error('Failed to fetch education items')
-            }
+            const data = storage.select('education_items')
+            setEducationItems(data)
         } catch (error) {
             console.error('Error fetching education items:', error)
         } finally {
@@ -69,32 +65,29 @@ export default function EducationPage() {
 
         setIsSubmitting(true)
         try {
-            const response = await fetch('/api/education-items', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    school: newSchool.trim(),
-                    degree: newDegree.trim(),
-                    year: newYear.trim(),
-                }),
-            })
-
-            const data = await response.json()
-
-            if (response.ok) {
-                setNewSchool('')
-                setNewDegree('')
-                setNewYear('')
-                await fetchEducationItems()
-            } else {
-                if (response.status === 409) {
-                    alert('This education entry already exists.')
-                } else {
-                    alert('Error creating education item: ' + (data.error || 'Unknown error'))
-                }
+            // Check for duplicates
+            const existing = storage.select('education_items')
+            if (existing.some((item: any) =>
+                item.school === newSchool.trim() &&
+                item.degree === newDegree.trim() &&
+                item.year === newYear.trim()
+            )) {
+                alert('This education entry already exists.')
+                return
             }
+
+            // Insert new education item
+            storage.insert('education_items', {
+                school: newSchool.trim(),
+                degree: newDegree.trim(),
+                year: newYear.trim(),
+                is_default: false
+            } as any)
+
+            setNewSchool('')
+            setNewDegree('')
+            setNewYear('')
+            await fetchEducationItems()
         } catch (error) {
             console.error('Error adding education item:', error)
             alert('Error adding education item. Please try again.')
@@ -105,20 +98,9 @@ export default function EducationPage() {
 
     const handleToggleDefault = async (id: number) => {
         try {
-            const response = await fetch('/api/education-items', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id, action: 'toggle-default' }),
-            })
-
-            if (response.ok) {
-                await fetchEducationItems()
-            } else {
-                const data = await response.json()
-                alert('Error updating default: ' + (data.error || 'Unknown error'))
-            }
+            setDefaultItem('education_items', id)
+            await fetchEducationItems()
+            setOpenDropdown(null)
         } catch (error) {
             console.error('Error toggling default:', error)
             alert('Error updating default. Please try again.')
@@ -129,16 +111,19 @@ export default function EducationPage() {
         if (!confirm('Are you sure you want to delete this education item?')) return
 
         try {
-            const response = await fetch(`/api/education-items?id=${id}`, {
-                method: 'DELETE',
-            })
+            // Delete resume_education entries that reference this education item
+            storage.deleteWhere('resume_education', (re: any) => re.education_item_id === id)
 
-            if (response.ok) {
-                await fetchEducationItems()
-            } else {
-                const data = await response.json()
-                alert('Error deleting education item: ' + (data.error || 'Unknown error'))
+            // Delete the education item
+            const deleted = storage.delete('education_items', id)
+
+            if (!deleted) {
+                alert('Error: Education item not found')
+                return
             }
+
+            await fetchEducationItems()
+            setOpenDropdown(null)
         } catch (error) {
             console.error('Error deleting education item:', error)
             alert('Error deleting education item. Please try again.')
@@ -164,34 +149,35 @@ export default function EducationPage() {
         if (!editSchool.trim() || !editDegree.trim() || !editYear.trim()) return
 
         try {
-            const response = await fetch('/api/education-items', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id,
-                    action: 'update',
-                    school: editSchool.trim(),
-                    degree: editDegree.trim(),
-                    year: editYear.trim(),
-                }),
-            })
-
-            if (response.ok) {
-                setEditingId(null)
-                setEditSchool('')
-                setEditDegree('')
-                setEditYear('')
-                await fetchEducationItems()
-            } else {
-                const data = await response.json()
-                if (response.status === 409) {
-                    alert('This education entry already exists.')
-                } else {
-                    alert('Error updating education item: ' + (data.error || 'Unknown error'))
-                }
+            // Check for duplicates (excluding current item)
+            const existing = storage.select('education_items')
+            if (existing.some((item: any) =>
+                item.id !== id &&
+                item.school === editSchool.trim() &&
+                item.degree === editDegree.trim() &&
+                item.year === editYear.trim()
+            )) {
+                alert('This education entry already exists.')
+                return
             }
+
+            // Update the education item
+            const updated = storage.update('education_items', id, {
+                school: editSchool.trim(),
+                degree: editDegree.trim(),
+                year: editYear.trim()
+            } as any)
+
+            if (!updated) {
+                alert('Error: Education item not found')
+                return
+            }
+
+            setEditingId(null)
+            setEditSchool('')
+            setEditDegree('')
+            setEditYear('')
+            await fetchEducationItems()
         } catch (error) {
             console.error('Error updating education item:', error)
             alert('Error updating education item. Please try again.')

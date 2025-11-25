@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { storage, getAllExperiencesWithHighlights } from '@/lib/storage'
 
 interface PersonalInfo {
     id: number
@@ -56,41 +57,28 @@ export default function NewResumePage() {
 
     const fetchPersonalInfo = async () => {
         try {
-            const [namesRes, phonesRes, emailsRes] = await Promise.all([
-                fetch('/api/names'),
-                fetch('/api/phones'),
-                fetch('/api/emails')
-            ])
-
-            if (namesRes.ok) {
-                const namesData = await namesRes.json()
-                const mappedNames = namesData.map((n: any) => ({ id: n.id, value: n.name, is_default: n.is_default }))
-                setNames(mappedNames)
-
-                const defaultName = mappedNames.find((n: PersonalInfo) => n.is_default)
-                if (defaultName) {
-                    setFormNameId(defaultName.id)
-                }
+            const namesData = storage.select('names')
+            const mappedNames = namesData.map((n: any) => ({ id: n.id, value: n.name, is_default: n.is_default }))
+            setNames(mappedNames)
+            const defaultName = mappedNames.find((n: PersonalInfo) => n.is_default)
+            if (defaultName) {
+                setFormNameId(defaultName.id)
             }
-            if (phonesRes.ok) {
-                const phonesData = await phonesRes.json()
-                const mappedPhones = phonesData.map((p: any) => ({ id: p.id, value: p.phone, is_default: p.is_default }))
-                setPhones(mappedPhones)
 
-                const defaultPhone = mappedPhones.find((p: PersonalInfo) => p.is_default)
-                if (defaultPhone) {
-                    setFormPhoneId(defaultPhone.id)
-                }
+            const phonesData = storage.select('phones')
+            const mappedPhones = phonesData.map((p: any) => ({ id: p.id, value: p.phone, is_default: p.is_default }))
+            setPhones(mappedPhones)
+            const defaultPhone = mappedPhones.find((p: PersonalInfo) => p.is_default)
+            if (defaultPhone) {
+                setFormPhoneId(defaultPhone.id)
             }
-            if (emailsRes.ok) {
-                const emailsData = await emailsRes.json()
-                const mappedEmails = emailsData.map((e: any) => ({ id: e.id, value: e.email, is_default: e.is_default }))
-                setEmails(mappedEmails)
 
-                const defaultEmail = mappedEmails.find((e: PersonalInfo) => e.is_default)
-                if (defaultEmail) {
-                    setFormEmailId(defaultEmail.id)
-                }
+            const emailsData = storage.select('emails')
+            const mappedEmails = emailsData.map((e: any) => ({ id: e.id, value: e.email, is_default: e.is_default }))
+            setEmails(mappedEmails)
+            const defaultEmail = mappedEmails.find((e: PersonalInfo) => e.is_default)
+            if (defaultEmail) {
+                setFormEmailId(defaultEmail.id)
             }
         } catch (error) {
             console.error('Error fetching personal info:', error)
@@ -99,11 +87,8 @@ export default function NewResumePage() {
 
     const fetchExperiences = async () => {
         try {
-            const response = await fetch('/api/experience')
-            if (response.ok) {
-                const data = await response.json()
-                setExperiences(data)
-            }
+            const data = getAllExperiencesWithHighlights()
+            setExperiences(data)
         } catch (error) {
             console.error('Error fetching experiences:', error)
         }
@@ -111,14 +96,10 @@ export default function NewResumePage() {
 
     const fetchEducationItems = async () => {
         try {
-            const response = await fetch('/api/education-items')
-            if (response.ok) {
-                const data = await response.json()
-                setEducationItems(data)
-
-                const defaultItems = data.filter((item: EducationItem) => item.is_default)
-                setFormEducationIds(defaultItems.map((item: EducationItem) => item.id))
-            }
+            const data = storage.select('education_items')
+            setEducationItems(data)
+            const defaultItems = data.filter((item: EducationItem) => item.is_default)
+            setFormEducationIds(defaultItems.map((item: EducationItem) => item.id))
         } catch (error) {
             console.error('Error fetching education items:', error)
         }
@@ -128,25 +109,36 @@ export default function NewResumePage() {
         e.preventDefault()
 
         try {
-            const response = await fetch('/api/resumes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: formTitle,
-                    name_id: formNameId,
-                    phone_id: formPhoneId,
-                    email_id: formEmailId,
-                    experience_ids: formExperienceInstances,
-                    education_ids: formEducationIds
-                })
+            // Create the resume
+            const newResume = storage.insert('resumes', {
+                title: formTitle,
+                name_id: formNameId,
+                phone_id: formPhoneId,
+                email_id: formEmailId,
+                updatedAt: new Date().toISOString()
+            } as any)
+
+            // Create experience instances
+            formExperienceInstances.forEach((exp, index) => {
+                storage.insert('resume_experience_instances', {
+                    resume_id: newResume.id,
+                    experience_template_id: exp.template_id,
+                    selected_highlight_ids: exp.selected_highlight_ids,
+                    display_order: index,
+                    updatedAt: new Date().toISOString()
+                } as any)
             })
 
-            if (response.ok) {
-                router.push('/dashboard/builder')
-            } else {
-                const error = await response.json()
-                alert('Error creating resume: ' + error.error)
-            }
+            // Create education links
+            formEducationIds.forEach((eduId, index) => {
+                storage.insert('resume_education', {
+                    resume_id: newResume.id,
+                    education_item_id: eduId,
+                    display_order: index
+                } as any)
+            })
+
+            router.push('/dashboard/builder')
         } catch (error) {
             console.error('Error creating resume:', error)
             alert('Error creating resume')

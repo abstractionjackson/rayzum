@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { storage, getAllResumesWithDetails } from '@/lib/storage'
 
 interface Resume {
     id: number
@@ -28,11 +29,8 @@ export default function BuilderPage() {
 
     const fetchResumes = async () => {
         try {
-            const response = await fetch('/api/resumes')
-            if (response.ok) {
-                const data = await response.json()
-                setResumes(data)
-            }
+            const data = getAllResumesWithDetails().filter(Boolean) as Resume[]
+            setResumes(data)
         } catch (error) {
             console.error('Error fetching resumes:', error)
         } finally {
@@ -46,18 +44,21 @@ export default function BuilderPage() {
         }
 
         try {
-            const response = await fetch('/api/resumes', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            })
+            // Delete resume experience instances
+            storage.deleteWhere('resume_experience_instances', (i: any) => i.resume_id === id)
 
-            if (response.ok) {
-                await fetchResumes()
-            } else {
-                const error = await response.json()
-                alert('Error deleting resume: ' + error.error)
+            // Delete resume education entries
+            storage.deleteWhere('resume_education', (e: any) => e.resume_id === id)
+
+            // Delete the resume
+            const deleted = storage.delete('resumes', id)
+
+            if (!deleted) {
+                alert('Error: Resume not found')
+                return
             }
+
+            await fetchResumes()
         } catch (error) {
             console.error('Error deleting resume:', error)
             alert('Error deleting resume')

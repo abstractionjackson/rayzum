@@ -1,50 +1,54 @@
-import postgres from 'postgres'
+'use client'
+
+import { useEffect, useState } from 'react'
 import { timeAgo } from '@/lib/utils'
 import RefreshButton from './refresh-button'
-import { seed } from '@/lib/seed'
 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" });
+interface ExperienceWithBullets {
+  id: number
+  job_title: string
+  company_name: string
+  start_date: string
+  end_date: string | null
+  highlights: Array<{ id: number; text: string }>
+}
 
-export default async function ResumeComponents() {
-  let experienceData, bulletsData
-  let startTime = Date.now()
+export default function ResumeComponents() {
+  const [experiences, setExperiences] = useState<ExperienceWithBullets[]>([])
+  const [loading, setLoading] = useState(true)
+  const [duration, setDuration] = useState(0)
 
-  try {
-    // Check if tables exist by trying to query them
-    experienceData = await sql`
-      SELECT es.*, r.title as resume_title 
-      FROM experience_sections es 
-      JOIN resumes r ON es.resume_id = r.id
-    `
-    bulletsData = await sql`
-      SELECT bp.*, es.company, es.position 
-      FROM bullet_points bp 
-      JOIN experience_sections es ON bp.experience_id = es.id
-    `
-  } catch (e: any) {
-    if (e.message.includes('relation') && e.message.includes('does not exist')) {
-      console.log(
-        'Resume tables do not exist, creating and seeding them now...'
-      )
-      // Tables are not created yet
-      await seed()
-      startTime = Date.now()
-      experienceData = await sql`
-        SELECT es.*, r.title as resume_title 
-        FROM experience_sections es 
-        JOIN resumes r ON es.resume_id = r.id
-      `
-      bulletsData = await sql`
-        SELECT bp.*, es.company, es.position 
-        FROM bullet_points bp 
-        JOIN experience_sections es ON bp.experience_id = es.id
-      `
-    } else {
-      throw e
+  const loadData = async () => {
+    const startTime = Date.now()
+    setLoading(true)
+
+    try {
+      const response = await fetch('/api/experience')
+      if (response.ok) {
+        const data = await response.json()
+        setExperiences(data)
+      }
+    } catch (error) {
+      console.error('Error loading experiences:', error)
+    } finally {
+      setDuration(Date.now() - startTime)
+      setLoading(false)
     }
   }
 
-  const duration = Date.now() - startTime
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const totalBullets = experiences.reduce((sum, exp) => sum + exp.highlights.length, 0)
+
+  if (loading) {
+    return (
+      <div className="bg-white/30 p-12 shadow-xl ring-1 ring-gray-900/5 rounded-lg backdrop-blur-lg max-w-4xl mx-auto w-full">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white/30 p-12 shadow-xl ring-1 ring-gray-900/5 rounded-lg backdrop-blur-lg max-w-4xl mx-auto w-full">
@@ -52,46 +56,44 @@ export default async function ResumeComponents() {
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">Resume Components</h2>
           <p className="text-sm text-gray-500">
-            Loaded {bulletsData.length} bullet points from {experienceData.length} experience sections in {duration}ms
+            Loaded {totalBullets} highlights from {experiences.length} experience templates in {duration}ms
           </p>
         </div>
         <RefreshButton />
       </div>
 
       <div className="space-y-6">
-        {experienceData.map((experience) => {
-          const relatedBullets = bulletsData.filter(bullet => bullet.experience_id === experience.id)
-
-          return (
+        {experiences.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            No experience templates yet. <a href="/dashboard/experience" className="text-blue-600 hover:underline">Add some</a>
+          </p>
+        ) : (
+          experiences.map((experience) => (
             <div key={experience.id} className="border border-gray-200 rounded-lg p-4">
               <div className="mb-4">
-                <h3 className="font-semibold text-lg">{experience.position}</h3>
-                <p className="text-gray-600">{experience.company}</p>
+                <h3 className="font-semibold text-lg">{experience.job_title}</h3>
+                <p className="text-gray-600">{experience.company_name}</p>
                 <p className="text-sm text-gray-500">
-                  {new Date(experience.start_date).getFullYear()} - {experience.is_current ? 'Present' : new Date(experience.end_date).getFullYear()}
+                  {new Date(experience.start_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - {experience.end_date ? new Date(experience.end_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Present'}
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-gray-700">Bullet Points:</h4>
-                {relatedBullets.map((bullet) => (
-                  <div key={bullet.id} className="flex items-start space-x-3">
-                    <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 ${bullet.is_selected ? 'bg-green-500' : 'bg-gray-300'
-                      }`} />
-                    <div className="flex-1">
-                      <p className={`text-sm ${bullet.is_selected ? 'text-gray-900' : 'text-gray-500'}`}>
-                        {bullet.content}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {bullet.is_selected ? 'Selected' : 'Not selected'} • Created {timeAgo(bullet.createdAt)}
-                      </p>
+              {experience.highlights.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-gray-700">Highlights:</h4>
+                  {experience.highlights.map((highlight) => (
+                    <div key={highlight.id} className="flex items-start space-x-3">
+                      <div className="mt-1.5 w-3 h-3 rounded-full flex-shrink-0 bg-blue-500" />
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">{highlight.text}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )
-        })}
+          ))
+        )}
       </div>
     </div>
   )

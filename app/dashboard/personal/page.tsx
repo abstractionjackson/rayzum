@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { storage, setDefaultItem } from '@/lib/storage'
 
 export default function PersonalPage() {
     const [names, setNames] = useState<Array<{ id: number; name: string; createdAt: string; is_default: boolean }>>([])
@@ -45,19 +46,8 @@ export default function PersonalPage() {
 
     const fetchNames = async () => {
         try {
-            console.log('Fetching names...')
-            const response = await fetch('/api/names')
-            console.log('Response status:', response.status, response.statusText)
-
-            if (response.ok) {
-                const data = await response.json()
-                console.log('Fetched names data:', data)
-                console.log('Data type:', typeof data, 'Length:', Array.isArray(data) ? data.length : 'not array')
-                setNames(data)
-            } else {
-                const errorData = await response.text()
-                console.error('Failed to fetch names:', response.status, errorData)
-            }
+            const data = storage.select('names')
+            setNames(data)
         } catch (error) {
             console.error('Error fetching names:', error)
         } finally {
@@ -67,18 +57,8 @@ export default function PersonalPage() {
 
     const fetchPhones = async () => {
         try {
-            console.log('Fetching phones...')
-            const response = await fetch('/api/phones')
-            console.log('Response status:', response.status, response.statusText)
-
-            if (response.ok) {
-                const data = await response.json()
-                console.log('Fetched phones data:', data)
-                setPhones(data)
-            } else {
-                const errorData = await response.text()
-                console.error('Failed to fetch phones:', response.status, errorData)
-            }
+            const data = storage.select('phones')
+            setPhones(data)
         } catch (error) {
             console.error('Error fetching phones:', error)
         }
@@ -86,18 +66,8 @@ export default function PersonalPage() {
 
     const fetchEmails = async () => {
         try {
-            console.log('Fetching emails...')
-            const response = await fetch('/api/emails')
-            console.log('Response status:', response.status, response.statusText)
-
-            if (response.ok) {
-                const data = await response.json()
-                console.log('Fetched emails data:', data)
-                setEmails(data)
-            } else {
-                const errorData = await response.text()
-                console.error('Failed to fetch emails:', response.status, errorData)
-            }
+            const data = storage.select('emails')
+            setEmails(data)
         } catch (error) {
             console.error('Error fetching emails:', error)
         }
@@ -109,27 +79,17 @@ export default function PersonalPage() {
 
         setIsSubmitting(true)
         try {
-            const response = await fetch('/api/names', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name: newName.trim() }),
-            })
-
-            const data = await response.json()
-
-            if (response.ok) {
-                setNewName('')
-                await fetchNames() // Refresh the list
-            } else {
-                // Handle different error types
-                if (response.status === 409) {
-                    alert('This name already exists. Please enter a different name.')
-                } else {
-                    alert('Error creating name: ' + (data.error || 'Unknown error'))
-                }
+            // Check for duplicates
+            const existing = storage.select('names')
+            if (existing.some((n: any) => n.name === newName.trim())) {
+                alert('This name already exists. Please enter a different name.')
+                return
             }
+
+            // Insert the new name
+            storage.insert('names', { name: newName.trim(), is_default: false })
+            setNewName('')
+            await fetchNames() // Refresh the list
         } catch (error) {
             console.error('Error adding name:', error)
             alert('Error adding name. Please try again.')
@@ -144,27 +104,17 @@ export default function PersonalPage() {
 
         setIsSubmitting(true)
         try {
-            const response = await fetch('/api/phones', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ phone: newPhone.trim() }),
-            })
-
-            const data = await response.json()
-
-            if (response.ok) {
-                setNewPhone('')
-                await fetchPhones() // Refresh the list
-            } else {
-                // Handle different error types
-                if (response.status === 409) {
-                    alert('This phone already exists. Please enter a different phone.')
-                } else {
-                    alert('Error creating phone: ' + (data.error || 'Unknown error'))
-                }
+            // Check for duplicates
+            const existing = storage.select('phones')
+            if (existing.some((p: any) => p.phone === newPhone.trim())) {
+                alert('This phone already exists. Please enter a different phone.')
+                return
             }
+
+            // Insert the new phone
+            storage.insert('phones', { phone: newPhone.trim(), is_default: false })
+            setNewPhone('')
+            await fetchPhones() // Refresh the list
         } catch (error) {
             console.error('Error adding phone:', error)
             alert('Error adding phone. Please try again.')
@@ -179,27 +129,17 @@ export default function PersonalPage() {
 
         setIsSubmitting(true)
         try {
-            const response = await fetch('/api/emails', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email: newEmail.trim() }),
-            })
-
-            const data = await response.json()
-
-            if (response.ok) {
-                setNewEmail('')
-                await fetchEmails() // Refresh the list
-            } else {
-                // Handle different error types
-                if (response.status === 409) {
-                    alert('This email already exists. Please enter a different email.')
-                } else {
-                    alert('Error creating email: ' + (data.error || 'Unknown error'))
-                }
+            // Check for duplicates
+            const existing = storage.select('emails')
+            if (existing.some((em: any) => em.email === newEmail.trim())) {
+                alert('This email already exists. Please enter a different email.')
+                return
             }
+
+            // Insert the new email
+            storage.insert('emails', { email: newEmail.trim(), is_default: false })
+            setNewEmail('')
+            await fetchEmails() // Refresh the list
         } catch (error) {
             console.error('Error adding email:', error)
             alert('Error adding email. Please try again.')
@@ -209,65 +149,24 @@ export default function PersonalPage() {
     }
 
     const handleSetDefault = async (id: number) => {
-        console.log('=== handleSetDefault called ===')
-        console.log('ID:', id)
-        console.log('Type of ID:', typeof id)
-
         try {
-            console.log('Setting default for ID:', id)
-            const response = await fetch('/api/names', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id, action: 'set_default' }),
-            })
-
-            console.log('Response status:', response.status)
-            const responseData = await response.json()
-            console.log('Response data:', responseData)
-
-            if (response.ok) {
-                console.log('Successfully set default, refreshing list...')
-                await fetchNames() // Refresh the list
-                setOpenDropdown(null) // Close dropdown
-            } else {
-                console.error('Failed to set default:', responseData)
-            }
+            setDefaultItem('names', id)
+            await fetchNames() // Refresh the list
+            setOpenDropdown(null) // Close dropdown
         } catch (error) {
             console.error('Error setting default name:', error)
         }
     }
 
     const handleDelete = async (id: number) => {
-        console.log('=== handleDelete called ===')
-        console.log('ID:', id)
-
         if (!confirm('Are you sure you want to delete this name?')) {
             return
         }
 
         try {
-            console.log('Deleting name with ID:', id)
-            const response = await fetch('/api/names', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id }),
-            })
-
-            console.log('Delete response status:', response.status)
-            const responseData = await response.json()
-            console.log('Delete response data:', responseData)
-
-            if (response.ok) {
-                console.log('Successfully deleted name, refreshing list...')
-                await fetchNames() // Refresh the list
-                setOpenDropdown(null) // Close dropdown
-            } else {
-                console.error('Failed to delete name:', responseData)
-            }
+            storage.delete('names', id)
+            await fetchNames() // Refresh the list
+            setOpenDropdown(null) // Close dropdown
         } catch (error) {
             console.error('Error deleting name:', error)
         }
@@ -275,25 +174,9 @@ export default function PersonalPage() {
 
     const handleSetPhoneDefault = async (id: number) => {
         try {
-            console.log('Setting default phone for ID:', id)
-            const response = await fetch('/api/phones', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id, action: 'set_default' }),
-            })
-
-            const responseData = await response.json()
-            console.log('Response data:', responseData)
-
-            if (response.ok) {
-                console.log('Successfully set default phone, refreshing list...')
-                await fetchPhones() // Refresh the list
-                setOpenPhoneDropdown(null) // Close dropdown
-            } else {
-                console.error('Failed to set default phone:', responseData)
-            }
+            setDefaultItem('phones', id)
+            await fetchPhones() // Refresh the list
+            setOpenPhoneDropdown(null) // Close dropdown
         } catch (error) {
             console.error('Error setting default phone:', error)
         }
@@ -305,24 +188,9 @@ export default function PersonalPage() {
         }
 
         try {
-            console.log('Deleting phone with ID:', id)
-            const response = await fetch('/api/phones', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id }),
-            })
-
-            const responseData = await response.json()
-
-            if (response.ok) {
-                console.log('Successfully deleted phone, refreshing list...')
-                await fetchPhones() // Refresh the list
-                setOpenPhoneDropdown(null) // Close dropdown
-            } else {
-                console.error('Failed to delete phone:', responseData)
-            }
+            storage.delete('phones', id)
+            await fetchPhones() // Refresh the list
+            setOpenPhoneDropdown(null) // Close dropdown
         } catch (error) {
             console.error('Error deleting phone:', error)
         }
@@ -330,25 +198,9 @@ export default function PersonalPage() {
 
     const handleSetEmailDefault = async (id: number) => {
         try {
-            console.log('Setting default email for ID:', id)
-            const response = await fetch('/api/emails', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id, action: 'set_default' }),
-            })
-
-            const responseData = await response.json()
-            console.log('Response data:', responseData)
-
-            if (response.ok) {
-                console.log('Successfully set default email, refreshing list...')
-                await fetchEmails() // Refresh the list
-                setOpenEmailDropdown(null) // Close dropdown
-            } else {
-                console.error('Failed to set default email:', responseData)
-            }
+            setDefaultItem('emails', id)
+            await fetchEmails() // Refresh the list
+            setOpenEmailDropdown(null) // Close dropdown
         } catch (error) {
             console.error('Error setting default email:', error)
         }
@@ -360,24 +212,9 @@ export default function PersonalPage() {
         }
 
         try {
-            console.log('Deleting email with ID:', id)
-            const response = await fetch('/api/emails', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id }),
-            })
-
-            const responseData = await response.json()
-
-            if (response.ok) {
-                console.log('Successfully deleted email, refreshing list...')
-                await fetchEmails() // Refresh the list
-                setOpenEmailDropdown(null) // Close dropdown
-            } else {
-                console.error('Failed to delete email:', responseData)
-            }
+            storage.delete('emails', id)
+            await fetchEmails() // Refresh the list
+            setOpenEmailDropdown(null) // Close dropdown
         } catch (error) {
             console.error('Error deleting email:', error)
         }
