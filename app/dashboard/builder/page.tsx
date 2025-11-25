@@ -127,6 +127,12 @@ export default function BuilderPage() {
 
                                     <div className="flex gap-2 ml-4">
                                         <Link
+                                            href={`/dashboard/builder/preview/${resume.id}`}
+                                            className="bg-green-100 text-green-700 px-4 py-2 rounded-md hover:bg-green-200 transition-colors text-sm font-medium"
+                                        >
+                                            Print
+                                        </Link>
+                                        <Link
                                             href={`/dashboard/builder/edit/${resume.id}`}
                                             className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
                                         >
