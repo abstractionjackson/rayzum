@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import postgres from 'postgres'
 import { seed } from '@/lib/seed'
-import { migrateDatabase } from '@/lib/migrate'
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' })
 
 export async function GET() {
   try {
-    // Run migration to ensure proper database state
-    await migrateDatabase()
-    
     // Create a fresh SQL connection
     const querySql = postgres(process.env.POSTGRES_URL!, { 
       ssl: 'require',
