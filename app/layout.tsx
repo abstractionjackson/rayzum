@@ -2,8 +2,8 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 
 export const metadata = {
-  metadataBase: new URL('https://resume-builder.vercel.app'),
-  title: 'Resume Builder',
+  metadataBase: new URL('https://abstractionjackson.github.io/rayzum'),
+  title: 'Rayzum',
   description:
     'Create professional resumes with modular components and templates',
 }

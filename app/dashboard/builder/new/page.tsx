@@ -175,6 +175,15 @@ export default function NewResumePage() {
                         />
                     </div>
 
+                    <div className="flex justify-end mb-2">
+                        <Link
+                            href="/dashboard/personal"
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            Manage Personal →
+                        </Link>
+                    </div>
+
                     <div className="grid md:grid-cols-3 gap-4">
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -256,133 +265,147 @@ export default function NewResumePage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Experience Templates
-                        </label>
-                        <div className="border border-gray-300 rounded-md p-3 max-h-96 overflow-y-auto">
-                            {experiences.length > 0 ? (
-                                <div className="space-y-3">
-                                    {experiences.map((exp) => {
-                                        const instance = formExperienceInstances.find(i => i.template_id === exp.id)
-                                        const isSelected = !!instance
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Experience Templates
+                            </label>
+                            <Link
+                                href="/dashboard/experience"
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                                Manage Experience →
+                            </Link>
+                        </div>
+                        <div className="border border-gray-300 rounded-md p-3 max-h-96 overflow-y-auto">{experiences.length > 0 ? (
+                            <div className="space-y-3">
+                                {experiences.map((exp) => {
+                                    const instance = formExperienceInstances.find(i => i.template_id === exp.id)
+                                    const isSelected = !!instance
 
-                                        return (
-                                            <div key={exp.id} className="border border-gray-200 rounded p-3">
-                                                <label className="flex items-start gap-2 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setFormExperienceInstances([
-                                                                    ...formExperienceInstances,
-                                                                    {
-                                                                        template_id: exp.id,
-                                                                        selected_highlight_ids: exp.highlights.map(h => h.id)
-                                                                    }
-                                                                ])
-                                                            } else {
-                                                                setFormExperienceInstances(
-                                                                    formExperienceInstances.filter(i => i.template_id !== exp.id)
-                                                                )
-                                                            }
-                                                        }}
-                                                        className="mt-1"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <div className="font-medium text-sm">{exp.job_title}</div>
-                                                        <div className="text-xs text-gray-500">{exp.company_name}</div>
-                                                    </div>
-                                                </label>
+                                    return (
+                                        <div key={exp.id} className="border border-gray-200 rounded p-3">
+                                            <label className="flex items-start gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setFormExperienceInstances([
+                                                                ...formExperienceInstances,
+                                                                {
+                                                                    template_id: exp.id,
+                                                                    selected_highlight_ids: exp.highlights.map(h => h.id)
+                                                                }
+                                                            ])
+                                                        } else {
+                                                            setFormExperienceInstances(
+                                                                formExperienceInstances.filter(i => i.template_id !== exp.id)
+                                                            )
+                                                        }
+                                                    }}
+                                                    className="mt-1"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-sm">{exp.job_title}</div>
+                                                    <div className="text-xs text-gray-500">{exp.company_name}</div>
+                                                </div>
+                                            </label>
 
-                                                {isSelected && exp.highlights && exp.highlights.length > 0 && (
-                                                    <div className="mt-2 ml-6 space-y-1">
-                                                        <div className="text-xs font-medium text-gray-600 mb-1">Select highlights:</div>
-                                                        {exp.highlights.map((highlight) => (
-                                                            <label key={highlight.id} className="flex items-start gap-2 cursor-pointer text-xs">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={instance?.selected_highlight_ids.includes(highlight.id)}
-                                                                    onChange={(e) => {
-                                                                        const updatedInstances = formExperienceInstances.map(i => {
-                                                                            if (i.template_id === exp.id) {
-                                                                                if (e.target.checked) {
-                                                                                    return {
-                                                                                        ...i,
-                                                                                        selected_highlight_ids: [...i.selected_highlight_ids, highlight.id]
-                                                                                    }
-                                                                                } else {
-                                                                                    return {
-                                                                                        ...i,
-                                                                                        selected_highlight_ids: i.selected_highlight_ids.filter(id => id !== highlight.id)
-                                                                                    }
+                                            {isSelected && exp.highlights && exp.highlights.length > 0 && (
+                                                <div className="mt-2 ml-6 space-y-1">
+                                                    <div className="text-xs font-medium text-gray-600 mb-1">Select highlights:</div>
+                                                    {exp.highlights.map((highlight) => (
+                                                        <label key={highlight.id} className="flex items-start gap-2 cursor-pointer text-xs">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={instance?.selected_highlight_ids.includes(highlight.id)}
+                                                                onChange={(e) => {
+                                                                    const updatedInstances = formExperienceInstances.map(i => {
+                                                                        if (i.template_id === exp.id) {
+                                                                            if (e.target.checked) {
+                                                                                return {
+                                                                                    ...i,
+                                                                                    selected_highlight_ids: [...i.selected_highlight_ids, highlight.id]
+                                                                                }
+                                                                            } else {
+                                                                                return {
+                                                                                    ...i,
+                                                                                    selected_highlight_ids: i.selected_highlight_ids.filter(id => id !== highlight.id)
                                                                                 }
                                                                             }
-                                                                            return i
-                                                                        })
-                                                                        setFormExperienceInstances(updatedInstances)
-                                                                    }}
-                                                                    className="mt-0.5"
-                                                                />
-                                                                <span className="text-gray-700">{highlight.text}</span>
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-gray-500 text-center py-4">
-                                    No experience templates yet.{' '}
-                                    <Link href="/dashboard/experience" className="text-blue-600 hover:underline">
-                                        Add experience
-                                    </Link>
-                                </p>
-                            )}
+                                                                        }
+                                                                        return i
+                                                                    })
+                                                                    setFormExperienceInstances(updatedInstances)
+                                                                }}
+                                                                className="mt-0.5"
+                                                            />
+                                                            <span className="text-gray-700">{highlight.text}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 text-center py-4">
+                                No experience templates yet.{' '}
+                                <Link href="/dashboard/experience" className="text-blue-600 hover:underline">
+                                    Add experience
+                                </Link>
+                            </p>
+                        )}
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Education
-                        </label>
-                        <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
-                            {educationItems.length > 0 ? (
-                                <div className="space-y-2">
-                                    {educationItems.map((item) => (
-                                        <label key={item.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                            <input
-                                                type="checkbox"
-                                                checked={formEducationIds.includes(item.id)}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        if (!formEducationIds.includes(item.id)) {
-                                                            setFormEducationIds([...formEducationIds, item.id])
-                                                        }
-                                                    } else {
-                                                        setFormEducationIds(formEducationIds.filter(id => id !== item.id))
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Education
+                            </label>
+                            <Link
+                                href="/dashboard/education-items"
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                                Manage Education →
+                            </Link>
+                        </div>
+                        <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">{educationItems.length > 0 ? (
+                            <div className="space-y-2">
+                                {educationItems.map((item) => (
+                                    <label key={item.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                        <input
+                                            type="checkbox"
+                                            checked={formEducationIds.includes(item.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    if (!formEducationIds.includes(item.id)) {
+                                                        setFormEducationIds([...formEducationIds, item.id])
                                                     }
-                                                }}
-                                                className="mt-1"
-                                            />
-                                            <div className="flex-1">
-                                                <div className="font-medium text-sm">{item.school}</div>
-                                                <div className="text-xs text-gray-600">{item.degree}</div>
-                                                <div className="text-xs text-gray-500">{item.year}</div>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-gray-500 text-center py-4">
-                                    No education entries yet.{' '}
-                                    <Link href="/dashboard/education-items" className="text-blue-600 hover:underline">
-                                        Add education
-                                    </Link>
-                                </p>
-                            )}
+                                                } else {
+                                                    setFormEducationIds(formEducationIds.filter(id => id !== item.id))
+                                                }
+                                            }}
+                                            className="mt-1"
+                                        />
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{item.school}</div>
+                                            <div className="text-xs text-gray-600">{item.degree}</div>
+                                            <div className="text-xs text-gray-500">{item.year}</div>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 text-center py-4">
+                                No education entries yet.{' '}
+                                <Link href="/dashboard/education-items" className="text-blue-600 hover:underline">
+                                    Add education
+                                </Link>
+                            </p>
+                        )}
                         </div>
                     </div>
 
