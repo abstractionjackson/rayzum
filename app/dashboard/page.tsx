@@ -7,7 +7,7 @@ import { storage, getAllExperiencesWithHighlights, setDefaultItem } from '@/lib/
 import DashboardPersonal from '@/components/dashboard-personal'
 import DashboardExperience from '@/components/dashboard-experience'
 import DashboardEducation from '@/components/dashboard-education'
-import ResumePreview from '@/components/resume-preview'
+import { generateResumePDF } from '@/lib/pdf-generator'
 
 interface Resume {
     id: number
@@ -52,7 +52,6 @@ export default function Dashboard() {
     const [activeTab, setActiveTab] = useState('resumes')
     const [showBuilder, setShowBuilder] = useState(false)
     const [editingResumeId, setEditingResumeId] = useState<number | null>(null)
-    const [previewResumeId, setPreviewResumeId] = useState<number | null>(null)
 
     // Builder form state
     const [names, setNames] = useState<PersonalInfo[]>([])
@@ -103,7 +102,6 @@ export default function Dashboard() {
     const openBuilder = () => {
         // Reset form and set defaults
         setEditingResumeId(null)
-        setPreviewResumeId(null)
         setFormTitle('')
         const defaultName = names.find((n) => n.is_default)
         setFormNameId(defaultName?.id || null)
@@ -143,14 +141,7 @@ export default function Dashboard() {
         setFormEducationIds(eduLinks)
 
         setEditingResumeId(resumeId)
-        setPreviewResumeId(null)
         setShowBuilder(true)
-    }
-
-    const openPreviewResume = (resumeId: number) => {
-        setPreviewResumeId(resumeId)
-        setShowBuilder(false)
-        setEditingResumeId(null)
     }
 
     const closeBuilder = () => {
@@ -158,8 +149,13 @@ export default function Dashboard() {
         setEditingResumeId(null)
     }
 
-    const closePreview = () => {
-        setPreviewResumeId(null)
+    const handleGeneratePDF = async (resumeId: number) => {
+        try {
+            await generateResumePDF(resumeId)
+        } catch (error) {
+            console.error('Error generating PDF:', error)
+            alert('Error generating PDF. Please try again.')
+        }
     }
 
     const handleDeleteResume = (resumeId: number) => {
@@ -177,12 +173,9 @@ export default function Dashboard() {
             // Delete the resume
             storage.delete('resumes', resumeId)
 
-            // Close builder/preview if deleting current resume
+            // Close builder if deleting current resume
             if (editingResumeId === resumeId) {
                 closeBuilder()
-            }
-            if (previewResumeId === resumeId) {
-                closePreview()
             }
 
             // Reload resumes
@@ -319,9 +312,7 @@ export default function Dashboard() {
                     {/* Main Panel */}
                     <div className="flex-1 overflow-auto">
                         <Tabs.Content value="resumes" className="p-6">
-                            {previewResumeId ? (
-                                <ResumePreview resumeId={previewResumeId} onClose={closePreview} />
-                            ) : showBuilder ? (
+                            {showBuilder ? (
                                 <div className="bg-white rounded-lg shadow">
                                     <div className="px-6 py-4 border-b border-gray-200">
                                         <h2 className="text-lg font-semibold text-gray-900">
@@ -582,9 +573,12 @@ export default function Dashboard() {
                                                     {resumes.map((resume) => (
                                                         <tr key={resume.id} className="hover:bg-gray-50">
                                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                                <div className="text-sm font-medium text-gray-900">
+                                                                <button
+                                                                    onClick={() => handleGeneratePDF(resume.id)}
+                                                                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                                                >
                                                                     {resume.title}
-                                                                </div>
+                                                                </button>
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap">
                                                                 <div className="text-sm text-gray-500">
@@ -602,12 +596,6 @@ export default function Dashboard() {
                                                                     className="text-blue-600 hover:text-blue-800 mr-4"
                                                                 >
                                                                     Edit
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => openPreviewResume(resume.id)}
-                                                                    className="text-green-600 hover:text-green-800 mr-4"
-                                                                >
-                                                                    Preview
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleDeleteResume(resume.id)}
