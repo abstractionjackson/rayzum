@@ -570,6 +570,16 @@ export default function PersonalPage() {
                     )}
                 </div>
             </div>
+
+            {/* Next Step Button */}
+            <div className="max-w-4xl mx-auto mt-8 flex justify-end">
+                <Link
+                    href="/dashboard/experience"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors font-medium"
+                >
+                    Next: Manage Experience →
+                </Link>
+            </div>
         </main>
     )
 }

@@ -237,6 +237,15 @@ export default function EditResumePage() {
                         />
                     </div>
 
+                    <div className="flex justify-end mb-2">
+                        <Link
+                            href="/dashboard/personal"
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            Manage Personal →
+                        </Link>
+                    </div>
+
                     <div className="grid md:grid-cols-3 gap-4">
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -297,9 +306,17 @@ export default function EditResumePage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Experience Templates
-                        </label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Experience Templates
+                            </label>
+                            <Link
+                                href="/dashboard/experience"
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                                Manage Experience →
+                            </Link>
+                        </div>
                         <div className="border border-gray-300 rounded-md p-3 max-h-96 overflow-y-auto">
                             {experiences.length > 0 ? (
                                 <div className="space-y-3">
@@ -386,9 +403,17 @@ export default function EditResumePage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Education
-                        </label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Education
+                            </label>
+                            <Link
+                                href="/dashboard/education-items"
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                                Manage Education →
+                            </Link>
+                        </div>
                         <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
                             {educationItems.length > 0 ? (
                                 <div className="space-y-2">

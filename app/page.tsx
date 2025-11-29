@@ -3,9 +3,6 @@ import { Suspense } from 'react'
 import ResumeComponents from '@/components/table'
 import ResumeComponentsPlaceholder from '@/components/table-placeholder'
 
-export const preferredRegion = 'home'
-export const dynamic = 'force-dynamic'
-
 export default function Home() {
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center py-12">
