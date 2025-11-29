@@ -6,7 +6,7 @@ This application has been converted to a static site using browser localStorage 
 
 ### 1. Enable GitHub Pages
 
-1. Go to your repository on GitHub: `https://github.com/abstractionjackson/regent-street`
+1. Go to your repository on GitHub: `https://github.com/abstractionjackson/rayzum`
 2. Click on **Settings** tab
 3. In the left sidebar, click on **Pages**
 4. Under **Build and deployment**:
@@ -25,7 +25,7 @@ When you push to the `main` branch, the workflow will automatically:
 
 After the first successful deployment, your site will be available at:
 ```
-https://abstractionjackson.github.io/regent-street/
+https://abstractionjackson.github.io/rayzum/
 ```
 
 ## Manual Deployment (Optional)
@@ -43,7 +43,7 @@ pnpm build
 ## Important Notes
 
 ### Base Path
-The application is configured with basePath `/regent-street` for GitHub Pages. This matches your repository name.
+The application is configured with basePath `/rayzum` for GitHub Pages. This matches your repository name.
 
 If you rename the repository, update `basePath` in `next.config.js`:
 ```javascript
@@ -51,7 +51,7 @@ basePath: process.env.NODE_ENV === 'production' ? '/your-repo-name' : '',
 ```
 
 ### Local Storage
-All data is stored in the browser's localStorage under the key `'regent_street_db'`. This means:
+All data is stored in the browser's localStorage under the key `'rayzum_db'`. This means:
 - Data persists only in the browser where it was created
 - Data is not synced across devices
 - Clearing browser data will delete all resumes/templates
@@ -88,4 +88,4 @@ pnpm install
 pnpm dev
 ```
 
-Local development runs without the basePath, so use `http://localhost:3000/` (not `/regent-street`).
+Local development runs without the basePath, so use `http://localhost:3000/` (not `/rayzum`).

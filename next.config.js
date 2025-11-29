@@ -4,7 +4,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  basePath: process.env.NODE_ENV === 'production' ? '/regent-street' : '',
+  basePath: process.env.NODE_ENV === 'production' ? '/rayzum' : '',
   trailingSlash: true,
   // Generate a fallback 404 page for client-side routing
   distDir: 'out',

@@ -55,7 +55,7 @@ interface StorageData {
   }>
 }
 
-const STORAGE_KEY = 'regent_street_db'
+const STORAGE_KEY = 'rayzum_db'
 
 // Initialize empty database structure
 const getEmptyDatabase = (): StorageData => ({

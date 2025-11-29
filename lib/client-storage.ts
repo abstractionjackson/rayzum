@@ -12,9 +12,9 @@ export const useStorageSync = () => {
   
   // Listen for storage changes
   window.addEventListener('storage', (e) => {
-    if (e.key === 'regent_street_db') {
+    if (e.key === 'rayzum_db') {
       // Trigger a re-render by dispatching a custom event
-      window.dispatchEvent(new CustomEvent('regent_street_db_changed'))
+      window.dispatchEvent(new CustomEvent('rayzum_db_changed'))
     }
   })
   

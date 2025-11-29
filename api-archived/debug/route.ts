@@ -7,7 +7,7 @@ export async function GET() {
     // Return helpful debug info about the API structure
     return NextResponse.json({
       message: 'Local storage is browser-based - check browser DevTools → Application → Local Storage',
-      storage_key: 'regent_street_db',
+      storage_key: 'rayzum_db',
       api_endpoints: {
         names: '/api/names',
         phones: '/api/phones',
